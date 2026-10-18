@@ -1,0 +1,22 @@
+{
+  "expo": {
+    "name": "Amplify",
+    "slug": "campaign-amplify",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#F7F7F2"
+    },
+    "android": {
+      "package": "com.praveen.campaignamplify",
+      "adaptiveIcon": {
+        "backgroundColor": "#E8F0E8"
+      }
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.praveen.campaignamplify"
+    }
+  }
+}
