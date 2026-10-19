@@ -1,426 +1,3096 @@
-// App.tsx - React Native mobile app for Amplify demo
-// OVERVIEW: This is the main UI file. It contains the screens, user interactions,
-// API calls, sample campaign data, and styles for the Campaign Amplification MVP.
-// React hooks help the screen remember values (useState), run side effects (useEffect),
-// and reuse functions/calculated values efficiently (useCallback/useMemo).
+
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator, Alert, Image, KeyboardAvoidingView, Linking, Platform,
-  Pressable, RefreshControl, ScrollView, StatusBar, StyleSheet, Text,
-  TextInput, View
+  ActivityIndicator,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Linking,
+  Platform,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
-// Backend base URL. Set EXPO_PUBLIC_API_URL in the mobile .env file for your setup.
-// 10.0.2.2 is commonly used by Android emulators to reach the host computer.
-const API = process.env.EXPO_PUBLIC_API_URL || "http://10.0.2.2:5000/api";
-// Options shown when users search or create campaigns.
-const CATEGORIES = ["All","Environment","Health","Science","Education","Public Policy","Economic Policy","Community","Arts & Culture","Business","Other"];
-const STEPS = ["Basics","Story","Campaign & Ad Visuals","Reach","Submit"];
-// Helper: format a number as Indian rupees.
-const money = (n:number) => "₹" + Math.round(Number(n || 0)).toLocaleString("en-IN");
-// Demo estimate only: assumes about 18 impressions per rupee. It is not live ad data.
-const estimateReach = (n:number) => Math.round(n * 18).toLocaleString("en-IN");
-// TypeScript types describe the shape of data used by the app.
-type Source = { title:string; url:string };
-type Section = { heading:string; body:string };
-type Campaign = {
-  id:string; title:string; category:string; creatorName:string; summary:string; coverImage:string;
-  storyIntro:string; storySections:Section[]; sources:Source[]; adHeadline:string; adDescription:string; cta:string;
-  audienceLocation:string; audienceInterests:string[]; channels:string[]; durationDays:number;
-  fundingGoal:number; raised:number; status:string; estimatedReach:number; adBudget:number; adSpend:number;
-  impressions:number; clicks:number; measuredReach:number|null; backers:number; deadline:string;
-};
-type Draft = Partial<Campaign> & { id?:string; rulesAccepted?:boolean };
-type Activity = {id:string; title:string; body:string; type:string; createdAt:string; campaignId?:string};
-// Example campaigns let the UI display content even when the backend is unavailable.
-// These are sample records, not proof of real campaigns or real advertising results.
-const DEMO: Campaign[] = [
- {id:"camp-clean-rivers",title:"Cleaner rivers start with local action",category:"Environment",creatorName:"River Commons Collective",summary:"A practical community campaign sharing river cleanup data and ways residents can help reduce plastic waste.",coverImage:"https://images.unsplash.com/photo-1437482078695-73f5ca6c96e2?auto=format&fit=crop&w=1200&q=80",storyIntro:"Healthy rivers begin with visible information and small actions that communities can take together.",storySections:[{heading:"Why this matters",body:"Plastic waste can travel far beyond the place where it enters a waterway. Local monitoring and clear public information help communities understand where action is most useful."},{heading:"What this campaign will do",body:"This message campaign will promote a public explainer, share practical waste-reduction steps, and direct interested residents to local cleanup resources."}],sources:[{title:"UNEP — Plastic pollution",url:"https://www.unep.org/plastic-pollution"},{title:"Our World in Data — Plastic pollution",url:"https://ourworldindata.org/plastic-pollution"}],adHeadline:"Small actions. Cleaner rivers.",adDescription:"Explore practical steps for reducing river plastic waste.",cta:"Learn more",audienceLocation:"Hyderabad, Telangana",audienceInterests:["Environment","Community action"],channels:["Social feeds","Display"],durationDays:21,fundingGoal:50000,raised:32750,status:"available_for_funding",estimatedReach:900000,adBudget:45000,adSpend:0,impressions:0,clicks:0,measuredReach:null,backers:0,deadline:new Date(Date.now()+14*86400000).toISOString()},
- {id:"camp-rural-science",title:"Make science learning accessible everywhere",category:"Education",creatorName:"Open Learning Lab",summary:"Help a free science learning guide reach students and educators beyond existing school networks.",coverImage:"https://images.unsplash.com/photo-1532094349884-543bc11b234d?auto=format&fit=crop&w=1200&q=80",storyIntro:"Curiosity is everywhere, but useful learning resources do not always reach every learner.",storySections:[{heading:"The opportunity",body:"Short, accessible science explainers can give students and educators a starting point for experiments, questions, and further learning."}],sources:[{title:"UNESCO — Education",url:"https://www.unesco.org/en/education"}],adHeadline:"Science belongs to everyone",adDescription:"Discover a free guide for curious learners.",cta:"Explore guide",audienceLocation:"India",audienceInterests:["Education","Science"],channels:["Social feeds"],durationDays:30,fundingGoal:35000,raised:16800,status:"available_for_funding",estimatedReach:630000,adBudget:31500,adSpend:0,impressions:0,clicks:0,measuredReach:null,backers:0,deadline:new Date(Date.now()+20*86400000).toISOString()},
- {id:"camp-public-health",title:"Clear health information saves time",category:"Health",creatorName:"Community Health Notes",summary:"Promote a plain-language guide that helps people prepare better questions for healthcare appointments.",coverImage:"https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=1200&q=80",storyIntro:"Good information can help people have more confident conversations with qualified health professionals.",storySections:[{heading:"A clearer starting point",body:"This campaign shares a general appointment-preparation checklist and does not replace professional diagnosis or treatment."}],sources:[{title:"WHO — Health topics",url:"https://www.who.int/health-topics"}],adHeadline:"Prepare for your next health visit",adDescription:"A simple checklist for clearer conversations.",cta:"Read guide",audienceLocation:"India",audienceInterests:["Health education"],channels:["Social feeds","Display"],durationDays:14,fundingGoal:25000,raised:9200,status:"available_for_funding",estimatedReach:450000,adBudget:22500,adSpend:0,impressions:0,clicks:0,measuredReach:null,backers:0,deadline:new Date(Date.now()+9*86400000).toISOString()}
+// ============================================================
+// AMPLIFY — colourful, mobile-first campaign amplification MVP
+// Existing REST API endpoints and simulated payment behaviour
+// are preserved. No real payments or advertising are performed.
+// ============================================================
+
+const API =
+  process.env.EXPO_PUBLIC_API_URL || "http://10.0.2.2:5000/api";
+
+const CATEGORIES = [
+  "All",
+  "Environment",
+  "Health",
+  "Science",
+  "Education",
+  "Public Policy",
+  "Economic Policy",
+  "Community",
+  "Arts & Culture",
+  "Business",
+  "Other",
 ];
 
-// One shared API helper for GET/POST/PUT requests. It parses JSON and throws
-// an error for unsuccessful HTTP responses so each screen can show a message.
-async function api<T>(path:string, options:RequestInit = {}):Promise<T> {
-  const response = await fetch(`${API}${path}`, { ...options, headers:{ "Content-Type":"application/json", ...(options.headers || {}) } });
-  const data = await response.json().catch(()=>({error:"The server returned an unreadable response."}));
-  if (!response.ok) throw new Error(data.error || "Something went wrong.");
+const STEPS = [
+  "Basics",
+  "Story",
+  "Campaign & Ad Visuals",
+  "Reach",
+  "Submit",
+];
+
+const C = {
+  ink: "#17172F",
+  muted: "#77788F",
+  bg: "#F6F5FB",
+  white: "#FFFFFF",
+  purple: "#6D4AFF",
+  purpleDark: "#4C32C9",
+  lavender: "#EEE9FF",
+  navy: "#191638",
+  navySoft: "#28244D",
+  teal: "#14B8A6",
+  tealPale: "#DDF8F2",
+  coral: "#FF786E",
+  coralPale: "#FFF0ED",
+  yellow: "#FFD166",
+  yellowPale: "#FFF6D9",
+  blue: "#4D91FF",
+  bluePale: "#E8F1FF",
+  pink: "#E85DA8",
+  pinkPale: "#FDE7F2",
+  green: "#218B68",
+  greenPale: "#E1F6EC",
+  line: "#E9E7F1",
+  danger: "#C43D55",
+  grayPale: "#F0EFF6",
+};
+
+const money = (n: number) =>
+  "₹" + Math.round(Number(n || 0)).toLocaleString("en-IN");
+
+const number = (n: number) =>
+  Number(n || 0).toLocaleString("en-IN");
+
+const estimateReach = (n: number) =>
+  number(Math.round(Math.max(0, Number(n) || 0) * 18));
+
+const progressOf = (c: Campaign) =>
+  c.fundingGoal > 0
+    ? Math.min(100, Math.max(0, (c.raised / c.fundingGoal) * 100))
+    : 0;
+
+type Source = { title: string; url: string };
+type Section = { heading: string; body: string };
+
+type Campaign = {
+  id: string;
+  title: string;
+  category: string;
+  creatorName: string;
+  summary: string;
+  coverImage: string;
+  storyIntro: string;
+  storySections: Section[];
+  sources: Source[];
+  adHeadline: string;
+  adDescription: string;
+  cta: string;
+  audienceLocation: string;
+  audienceInterests: string[];
+  channels: string[];
+  durationDays: number;
+  fundingGoal: number;
+  raised: number;
+  status: string;
+  estimatedReach: number;
+  adBudget: number;
+  adSpend: number;
+  impressions: number;
+  clicks: number;
+  measuredReach: number | null;
+  backers: number;
+  deadline: string;
+};
+
+type Draft = Partial<Campaign> & {
+  id?: string;
+  rulesAccepted?: boolean;
+};
+
+type ActivityItem = {
+  id: string;
+  title: string;
+  body: string;
+  type: string;
+  createdAt: string;
+  campaignId?: string;
+};
+
+const DEMO: Campaign[] = [
+  {
+    id: "camp-clean-rivers",
+    title: "Cleaner rivers start with local action",
+    category: "Environment",
+    creatorName: "River Commons Collective",
+    summary:
+      "Share river cleanup information and practical ways communities can reduce plastic waste.",
+    coverImage:
+      "https://images.unsplash.com/photo-1437482078695-73f5ca6c96e2?auto=format&fit=crop&w=1000&q=80",
+    storyIntro:
+      "Healthy rivers begin with useful information and small actions communities can take together.",
+    storySections: [
+      {
+        heading: "Why this matters",
+        body:
+          "Plastic waste can travel far beyond the place where it enters a waterway. Local information helps communities understand where action is useful.",
+      },
+      {
+        heading: "What this campaign does",
+        body:
+          "This message campaign shares practical waste-reduction steps and links to local cleanup resources.",
+      },
+    ],
+    sources: [
+      {
+        title: "UNEP — Plastic pollution",
+        url: "https://www.unep.org/plastic-pollution",
+      },
+      {
+        title: "Our World in Data — Plastic pollution",
+        url: "https://ourworldindata.org/plastic-pollution",
+      },
+    ],
+    adHeadline: "Small actions. Cleaner rivers.",
+    adDescription: "Discover practical ways to reduce river plastic waste.",
+    cta: "Learn more",
+    audienceLocation: "Hyderabad, Telangana",
+    audienceInterests: ["Environment", "Community action"],
+    channels: ["Social feeds", "Display"],
+    durationDays: 21,
+    fundingGoal: 50000,
+    raised: 32750,
+    status: "available_for_funding",
+    estimatedReach: 900000,
+    adBudget: 45000,
+    adSpend: 0,
+    impressions: 0,
+    clicks: 0,
+    measuredReach: null,
+    backers: 0,
+    deadline: new Date(Date.now() + 14 * 86400000).toISOString(),
+  },
+  {
+    id: "camp-rural-science",
+    title: "Make science learning accessible",
+    category: "Education",
+    creatorName: "Open Learning Lab",
+    summary:
+      "Help free science learning resources reach students and educators.",
+    coverImage:
+      "https://images.unsplash.com/photo-1532094349884-543bc11b234d?auto=format&fit=crop&w=1000&q=80",
+    storyIntro:
+      "Curiosity is everywhere, but useful learning resources do not always reach every learner.",
+    storySections: [
+      {
+        heading: "The opportunity",
+        body:
+          "Accessible science explainers can give students and educators a starting point for experiments, questions and further learning.",
+      },
+    ],
+    sources: [
+      {
+        title: "UNESCO — Education",
+        url: "https://www.unesco.org/en/education",
+      },
+    ],
+    adHeadline: "Science belongs to everyone",
+    adDescription: "Discover a free guide for curious learners.",
+    cta: "Explore guide",
+    audienceLocation: "India",
+    audienceInterests: ["Education", "Science"],
+    channels: ["Social feeds"],
+    durationDays: 30,
+    fundingGoal: 35000,
+    raised: 16800,
+    status: "available_for_funding",
+    estimatedReach: 630000,
+    adBudget: 31500,
+    adSpend: 0,
+    impressions: 0,
+    clicks: 0,
+    measuredReach: null,
+    backers: 0,
+    deadline: new Date(Date.now() + 20 * 86400000).toISOString(),
+  },
+  {
+    id: "camp-health",
+    title: "Clear health information saves time",
+    category: "Health",
+    creatorName: "Community Health Notes",
+    summary:
+      "Share a plain-language guide to preparing questions for healthcare appointments.",
+    coverImage:
+      "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=1000&q=80",
+    storyIntro:
+      "Useful information can help people prepare for conversations with qualified health professionals.",
+    storySections: [
+      {
+        heading: "A clearer starting point",
+        body:
+          "This campaign shares a general appointment-preparation checklist and does not replace professional medical advice.",
+      },
+    ],
+    sources: [
+      {
+        title: "WHO — Health topics",
+        url: "https://www.who.int/health-topics",
+      },
+    ],
+    adHeadline: "Prepare for your next health visit",
+    adDescription: "A simple checklist for clearer conversations.",
+    cta: "Read guide",
+    audienceLocation: "India",
+    audienceInterests: ["Health education"],
+    channels: ["Social feeds", "Display"],
+    durationDays: 14,
+    fundingGoal: 25000,
+    raised: 9200,
+    status: "available_for_funding",
+    estimatedReach: 450000,
+    adBudget: 22500,
+    adSpend: 0,
+    impressions: 0,
+    clicks: 0,
+    measuredReach: null,
+    backers: 0,
+    deadline: new Date(Date.now() + 9 * 86400000).toISOString(),
+  },
+];
+
+async function api<T>(
+  path: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const response = await fetch(`${API}${path}`, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    },
+  });
+
+  const data = await response.json().catch(() => ({
+    error: "The server returned an unreadable response.",
+  }));
+
+  if (!response.ok) {
+    throw new Error(data.error || "Something went wrong.");
+  }
+
   return data as T;
 }
 
-// Central color palette used by the UI to keep screens visually consistent.
-const colors = { bg:"#F5F7F4", ink:"#17251D", muted:"#68756C", green:"#674adf", pale:"#E6F3EB", line:"#DFE7E0", white:"#FFFFFF", orange:"#D97736", red:"#B84242" };
+// ============================================================
+// REUSABLE UI COMPONENTS
+// ============================================================
 
-// Reusable button component so the same button styling can be used across screens.
-function Button({title,onPress,kind="primary",disabled=false}: {title:string;onPress:()=>void;kind?:"primary"|"secondary"|"ghost";disabled?:boolean}) {
- return <Pressable onPress={onPress} disabled={disabled} style={({pressed})=>[styles.button,kind==="primary"?styles.buttonPrimary:kind==="secondary"?styles.buttonSecondary:styles.buttonGhost,disabled&&{opacity:.45},pressed&&{opacity:.8}]}>
-   <Text style={[styles.buttonText,kind==="primary"?{color:"white"}:kind==="secondary"?{color:colors.green}:{color:colors.ink}]}>{title}</Text>
- </Pressable>;
-}
-// Reusable labeled text input. Supports normal text and multi-line fields.
-function Field({label,value,onChangeText,placeholder,multiline=false,keyboardType,maxLength}:any) {
- return <View style={styles.fieldWrap}><Text style={styles.label}>{label}</Text><TextInput value={String(value ?? "")} onChangeText={onChangeText} placeholder={placeholder || ""} placeholderTextColor="#9AA39B" multiline={multiline} keyboardType={keyboardType} maxLength={maxLength} style={[styles.input,multiline&&styles.multiline]} textAlignVertical={multiline?"top":"center"}/></View>;
-}
-// Small selectable pill used for categories, interests, and sorting filters.
-function Chip({label,selected,onPress}:any) {
- return <Pressable onPress={onPress} style={[styles.chip,selected&&styles.chipSelected]}><Text style={[styles.chipText,selected&&styles.chipTextSelected]}>{label}</Text></Pressable>;
-}
-// Visual progress bar; clamps the displayed width between 0% and 100%.
-function Progress({value}: {value:number}) {
- return <View style={styles.progressTrack}><View style={[styles.progressFill,{width:`${Math.min(100,Math.max(0,value))}%`}]} /></View>;
-}
-// Reusable campaign preview card with image, summary, funding progress, and action.
-function CampaignCard({campaign,onPress,onBack}: {campaign:Campaign;onPress:()=>void;onBack:()=>void}) {
- const progress = campaign.fundingGoal ? campaign.raised/campaign.fundingGoal*100 : 0;
- return <Pressable onPress={onPress} style={styles.campaignCard}>
-  <Image source={{uri:campaign.coverImage}} style={styles.campaignImage} />
-  <View style={styles.cardBody}>
-   <View style={styles.rowBetween}><Text style={styles.eyebrow}>{campaign.category.toUpperCase()}</Text><Text style={styles.status}>{campaign.status.replaceAll("_"," ")}</Text></View>
-   <Text style={styles.cardTitle}>{campaign.title}</Text>
-   <Text style={styles.mutedText}>By {campaign.creatorName}</Text>
-   <Text style={styles.summary} numberOfLines={2}>{campaign.summary}</Text>
-   <View style={styles.rowBetween}><Text style={styles.amount}>{money(campaign.raised)} <Text style={styles.mutedText}>raised</Text></Text><Text style={styles.mutedText}>{Math.round(progress)}% of {money(campaign.fundingGoal)}</Text></View>
-   <Progress value={progress}/>
-   <View style={[styles.rowBetween,{marginTop:13}]}><View><Text style={styles.metricValue}>{Number(campaign.estimatedReach||0).toLocaleString("en-IN")}</Text><Text style={styles.tiny}>estimated reach at goal</Text></View><Pressable style={styles.miniButton} onPress={onBack}><Text style={styles.miniButtonText}>Back campaign ↗</Text></Pressable></View>
-  </View>
- </Pressable>;
+function Label({ children }: { children: React.ReactNode }) {
+  return <Text style={S.label}>{children}</Text>;
 }
 
-// Main application logic. State variables control the current tab, screen, campaign,
-// form draft, contribution flow, activity, profile, and loading/error messages.
+function Button({
+  title,
+  onPress,
+  kind = "primary",
+  disabled = false,
+}: {
+  title: string;
+  onPress: () => void;
+  kind?: "primary" | "secondary" | "outline" | "ghost" | "coral";
+  disabled?: boolean;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      disabled={disabled}
+      style={({ pressed }) => [
+        S.button,
+        kind === "primary" && S.btnPrimary,
+        kind === "secondary" && S.btnSecondary,
+        kind === "outline" && S.btnOutline,
+        kind === "ghost" && S.btnGhost,
+        kind === "coral" && S.btnCoral,
+        disabled && { opacity: 0.45 },
+        pressed && { opacity: 0.78, transform: [{ scale: 0.99 }] },
+      ]}
+    >
+      <Text
+        style={[
+          S.buttonText,
+          kind === "primary" && { color: C.white },
+          kind === "secondary" && { color: C.purpleDark },
+          kind === "outline" && { color: C.ink },
+          kind === "ghost" && { color: C.purpleDark },
+          kind === "coral" && { color: C.ink },
+        ]}
+      >
+        {title}
+      </Text>
+    </Pressable>
+  );
+}
+
+function Field({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  multiline = false,
+  keyboardType,
+  maxLength,
+}: {
+  label: string;
+  value: unknown;
+  onChangeText: (value: string) => void;
+  placeholder?: string;
+  multiline?: boolean;
+  keyboardType?: "default" | "numeric" | "email-address" | "url";
+  maxLength?: number;
+}) {
+  return (
+    <View style={S.field}>
+      <Label>{label}</Label>
+      <TextInput
+        value={String(value ?? "")}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor="#A2A0B4"
+        multiline={multiline}
+        keyboardType={keyboardType}
+        maxLength={maxLength}
+        textAlignVertical={multiline ? "top" : "center"}
+        style={[S.input, multiline && S.inputMultiline]}
+      />
+    </View>
+  );
+}
+
+function Chip({
+  label,
+  selected,
+  onPress,
+  color = C.purple,
+}: {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+  color?: string;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      style={[
+        S.chip,
+        selected && { backgroundColor: color, borderColor: color },
+      ]}
+    >
+      <Text style={[S.chipText, selected && { color: C.white }]}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+function Progress({ value, color = C.teal }: { value: number; color?: string }) {
+  return (
+    <View style={S.progressTrack}>
+      <View
+        style={[
+          S.progressFill,
+          { width: `${Math.min(100, Math.max(0, value))}%`, backgroundColor: color },
+        ]}
+      />
+    </View>
+  );
+}
+
+function Header({
+  title,
+  subtitle,
+  back,
+}: {
+  title: string;
+  subtitle?: string;
+  back?: () => void;
+}) {
+  return (
+    <View style={S.header}>
+      {back && (
+        <Pressable onPress={back} style={S.back}>
+          <Text style={S.backText}>‹</Text>
+        </Pressable>
+      )}
+      <View style={{ flex: 1 }}>
+        <Text style={S.headerTitle}>{title}</Text>
+        {!!subtitle && <Text style={S.headerSubtitle}>{subtitle}</Text>}
+      </View>
+    </View>
+  );
+}
+
+function CampaignCard({
+  campaign,
+  onPress,
+  onBack,
+}: {
+  campaign: Campaign;
+  onPress: () => void;
+  onBack: () => void;
+}) {
+  const accent =
+    campaign.category === "Environment"
+      ? C.teal
+      : campaign.category === "Health"
+      ? C.coral
+      : campaign.category === "Education"
+      ? C.blue
+      : C.purple;
+
+  return (
+    <Pressable onPress={onPress} style={S.campaignCard}>
+      <View style={S.campaignImageWrap}>
+        <Image
+          source={{ uri: campaign.coverImage }}
+          style={S.campaignImage}
+          resizeMode="cover"
+        />
+        <View style={S.imageShade} />
+        <View style={[S.categoryBadge, { backgroundColor: accent }]}>
+          <Text style={S.categoryBadgeText}>{campaign.category}</Text>
+        </View>
+        <View style={S.imageBottomTag}>
+          <Text style={S.imageBottomTagText}>COMMUNITY CAMPAIGN</Text>
+        </View>
+      </View>
+
+      <View style={S.campaignBody}>
+        <Text style={S.campaignTitle}>{campaign.title}</Text>
+        <Text style={S.byline}>Created by {campaign.creatorName}</Text>
+        <Text style={S.campaignSummary} numberOfLines={2}>
+          {campaign.summary}
+        </Text>
+
+        <View style={S.rowBetween}>
+          <View>
+            <Text style={S.moneyLarge}>{money(campaign.raised)}</Text>
+            <Text style={S.small}>raised so far</Text>
+          </View>
+          <View style={{ alignItems: "flex-end" }}>
+            <Text style={S.moneySmall}>{Math.round(progressOf(campaign))}%</Text>
+            <Text style={S.small}>of goal</Text>
+          </View>
+        </View>
+
+        <Progress value={progressOf(campaign)} color={accent} />
+
+        <View style={[S.rowBetween, { marginTop: 7 }]}>
+          <View style={S.reachMini}>
+            <View style={[S.reachDot, { backgroundColor: accent }]} />
+            <Text style={S.small}>
+              {number(campaign.estimatedReach)} est. reach
+            </Text>
+          </View>
+          <Pressable onPress={onBack} style={S.miniAction}>
+            <Text style={S.miniActionText}>Support ↗</Text>
+          </Pressable>
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  tint = C.lavender,
+  accent = C.purple,
+}: {
+  label: string;
+  value: string;
+  tint?: string;
+  accent?: string;
+}) {
+  return (
+    <View style={[S.statCard, { backgroundColor: tint }]}>
+      <Text style={[S.statValue, { color: accent }]}>{value}</Text>
+      <Text style={S.statLabel}>{label}</Text>
+    </View>
+  );
+}
+
+// ============================================================
+// MAIN APP
+// ============================================================
+
 function MainApp() {
- const [tab,setTab] = useState("Home");
- const [campaigns,setCampaigns] = useState<Campaign[]>(DEMO);
- const [activity,setActivity] = useState<Activity[]>([]);
- const [screen,setScreen] = useState<"tabs"|"detail"|"create"|"contribute"|"receipt"|"report"|"info">("tabs");
- const [selected,setSelected] = useState<Campaign>(DEMO[0]);
- const [loading,setLoading] = useState(false);
- const [error,setError] = useState("");
- const [query,setQuery] = useState("");
- const [category,setCategory] = useState("All");
- const [sort,setSort] = useState("recent");
- const [draft,setDraft] = useState<Draft>({});
- const [step,setStep] = useState(0);
- const [autoSaved,setAutoSaved] = useState(false);
- const [saving,setSaving] = useState(false);
- const [rulesAccepted,setRulesAccepted] = useState(false);
- const [contribution,setContribution] = useState("250");
- const [receipt,setReceipt] = useState<any>(null);
- const [receiptCampaign,setReceiptCampaign] = useState<Campaign|null>(null);
- const [report,setReport] = useState<any>(null);
- const [profile,setProfile] = useState<any>(null);
- const [refreshing,setRefreshing] = useState(false);
- const [infoTitle,setInfoTitle] = useState("How it works");
+  const [tab, setTab] = useState("Home");
+  const [screen, setScreen] = useState<
+    "tabs" | "detail" | "create" | "contribute" | "receipt" | "report" | "info"
+  >("tabs");
 
- // Load campaigns, activity, and profile from the backend. If the request fails,
- // the sample DEMO campaigns remain visible and an error message is stored.
- const refresh = useCallback(async () => {
-  setRefreshing(true); setError("");
-  try {
-   const [c,a,p] = await Promise.all([api<{campaigns:Campaign[]}>("/campaigns"),api<{activity:Activity[]}>("/activity"),api<any>("/profile")]);
-   if(c.campaigns?.length) setCampaigns(c.campaigns);
-   setActivity(a.activity || []); setProfile(p);
-  } catch(e:any) { setError(e.message || "Couldn't connect to the API. Showing demo data."); }
-  finally { setRefreshing(false); }
- },[]);
- useEffect(()=>{refresh();},[refresh]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>(DEMO);
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
+  const [profile, setProfile] = useState<any>(null);
+  const [selected, setSelected] = useState<Campaign>(DEMO[0]);
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState("");
 
- // Search/filter/sort campaigns for the current screen. useMemo recalculates only
- // when one of its dependencies changes.
- const visibleCampaigns = useMemo(()=>{
-  let rows=[...campaigns];
-  if(tab==="Explore" || query) {
-   const q=query.toLowerCase();
-   rows=rows.filter(c=>(category==="All"||c.category===category) && (!q||[c.title,c.summary,c.creatorName,c.category].some(v=>String(v||"").toLowerCase().includes(q))));
-   if(sort==="progress") rows.sort((a,b)=>b.raised/b.fundingGoal-a.raised/a.fundingGoal);
-   if(sort==="ending") rows.sort((a,b)=>new Date(a.deadline||0).getTime()-new Date(b.deadline||0).getTime());
-  }
-  return rows.filter(c=>c.status==="available_for_funding"||c.status==="promoting"||c.status==="completed");
- },[campaigns,tab,query,category,sort]);
+  const [query, setQuery] = useState("");
+  const [category, setCategory] = useState("All");
+  const [sort, setSort] = useState("recent");
 
- // Navigation helpers: switch tabs, open a campaign, or start a new/editing draft.
- const goTab=(next:string)=>{setTab(next);setScreen("tabs");setError("");};
- const openCampaign=(c:Campaign)=>{setSelected(c);setScreen("detail");};
- const openCreate=(existing?:Campaign)=>{
-  setDraft(existing?{...existing}:{title:"",category:"",creatorName:"Praveen Kumar",summary:"",coverImage:"",storyIntro:"",storySections:[{heading:"Why this matters",body:""}],sources:[{title:"",url:""}],adHeadline:"",adDescription:"",cta:"Learn more",audienceLocation:"India",audienceInterests:[],channels:["Social feeds"],durationDays:14,fundingGoal:10000,adBudget:9000});
-  setStep(0);setRulesAccepted(false);setAutoSaved(false);setScreen("create");
- };
- const patchDraft=(key:string,value:any)=>setDraft(prev=>({...prev,[key]:value}));
- // Save a draft through the API. If the API is offline, keep the form usable and
- // tell the user the draft was not confirmed by the server.
- const saveDraft=useCallback(async (showMessage=false)=>{
-  if(!draft.title && !draft.category && !draft.summary) { if(showMessage) Alert.alert("Add a little detail","Enter a title or summary before saving your draft."); return; }
-  setSaving(true);
-  try {
-   let result:any;
-   if(draft.id) result=await api<{campaign:Campaign}>(`/campaigns/${draft.id}`,{method:"PUT",body:JSON.stringify(draft)});
-   else result=await api<{campaign:Campaign}>("/campaigns",{method:"POST",body:JSON.stringify({...draft,title:draft.title||"Untitled campaign",category:draft.category||"Other",creatorName:draft.creatorName||"Creator",fundingGoal:Number(draft.fundingGoal||10000),durationDays:Number(draft.durationDays||14),adBudget:Number(draft.adBudget||0)})});
-   if(!draft.id) setDraft(result.campaign);setCampaigns(prev=>[result.campaign,...prev.filter(c=>c.id!==result.campaign.id)]);setAutoSaved(true);
-   if(showMessage) Alert.alert("Draft saved","Your campaign draft is saved and can be resumed from Create or Profile.");
-  } catch(e:any) {
-   // Local editing remains usable when API is temporarily unavailable; user sees a clear message.
-   setAutoSaved(true);
-   if(showMessage) Alert.alert("Saved on this screen",`${e.message} Keep the app open and retry when the API is available.`);
-  } finally {setSaving(false);}
- },[draft]);
+  const [draft, setDraft] = useState<Draft>({});
+  const [step, setStep] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [autoSaved, setAutoSaved] = useState(false);
+  const [rulesAccepted, setRulesAccepted] = useState(false);
 
- // Auto-save while creating/editing: wait 1.4 seconds after the last draft change.
- // Cleanup cancels the previous timer when the draft changes or screen is left.
- useEffect(()=>{
-  if(screen!=="create") return;
-  const timer=setTimeout(()=>{if(draft.title||draft.summary||draft.storyIntro) saveDraft(false);},1400);
-  return ()=>clearTimeout(timer);
- },[draft,screen,saveDraft]);
+  const [contribution, setContribution] = useState("250");
+  const [receipt, setReceipt] = useState<any>(null);
+  const [receiptCampaign, setReceiptCampaign] = useState<Campaign | null>(null);
+  const [report, setReport] = useState<any>(null);
+  const [infoTitle, setInfoTitle] = useState("How it works");
 
- // Validate required fields before submitting a campaign for moderation/review.
- // Submission is not the same as approval or a live advertising launch.
- const submitDraft=async()=>{
-  if(!draft.title?.trim()||draft.title.length>60||!draft.category||!draft.creatorName?.trim()) {Alert.alert("Complete Basics","Add a title (up to 60 characters), category and creator name.");setStep(0);return;}
-  if((draft.storyIntro||"").trim().length<20) {Alert.alert("Add your story","Please write at least a short introductory story (20 characters or more).");setStep(1);return;}
-  if(!(draft.sources||[]).some(s=>s.title.trim()&&/^https?:\/\//i.test(s.url))) {Alert.alert("Add a source","Add at least one source with a valid http(s) URL.");setStep(1);return;}
-  if(!draft.adHeadline?.trim()) {Alert.alert("Add an ad headline","This helps people understand the message in placements.");setStep(2);return;}
-  if(!draft.audienceLocation?.trim()) {Alert.alert("Choose an audience","Add the target location.");setStep(3);return;}
-  if(!rulesAccepted) {Alert.alert("Confirmation required","Confirm the campaign rules before submitting.");setStep(4);return;}
-  try {
-   let current:any=draft;
-   if(!draft.id) {const made=await api<{campaign:Campaign}>("/campaigns",{method:"POST",body:JSON.stringify({...draft,title:draft.title,category:draft.category,creatorName:draft.creatorName,fundingGoal:Number(draft.fundingGoal||10000),durationDays:Number(draft.durationDays||14),adBudget:Number(draft.adBudget||0)})});current=made.campaign;}
-   else {const updated=await api<{campaign:Campaign}>(`/campaigns/${draft.id}`,{method:"PUT",body:JSON.stringify({...draft,fundingGoal:Number(draft.fundingGoal||10000),durationDays:Number(draft.durationDays||14),adBudget:Number(draft.adBudget||0)})});current=updated.campaign;}
-   const result=await api<{campaign:Campaign}>(`/campaigns/${current.id}/submit`,{method:"POST",body:JSON.stringify({rulesAccepted:true})});
-   setCampaigns(prev=>[result.campaign,...prev.filter(c=>c.id!==result.campaign.id)]);setDraft(result.campaign);setScreen("tabs");setTab("Activity");await refresh();
-   Alert.alert("Submitted for review","Your campaign is now in review. Approval is required before it can receive contributions, and funding does not automatically start advertising.");
-  } catch(e:any) {Alert.alert("Couldn't submit",e.message || "Please check your connection and try again.");}
- };
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    setError("");
 
- // Open the contribution screen for the currently selected campaign.
- const backCampaign=async()=>{
-  setContribution("250");setScreen("contribute");
- };
- // Process a simulated contribution through the backend. No real payment provider
- // is connected in this demo.
- const doContribution=async()=>{
-  const amount=Number(contribution);
-  if(!Number.isFinite(amount)||amount<50||amount>100000){Alert.alert("Check amount","Choose an amount between ₹50 and ₹1,00,000.");return;}
-  try {
-   const result=await api<{receipt:any;campaign:Campaign}>(`/campaigns/${selected.id}/contributions`,{method:"POST",body:JSON.stringify({amount,simulate:"success"})});
-   setReceipt(result.receipt);setReceiptCampaign(result.campaign);setSelected(result.campaign);setCampaigns(prev=>prev.map(c=>c.id===result.campaign.id?result.campaign:c));setScreen("receipt");await refresh();
-  } catch(e:any) {Alert.alert("Payment not completed",e.message || "The simulated payment could not be completed.");}
- };
- // Fetch a campaign report; if unavailable, show a clearly labeled demo report.
- const openReport=async(c:Campaign)=>{
-  setSelected(c);setScreen("report");
-  try {const r=await api<{report:any}>(`/campaigns/${c.id}/report`);setReport(r.report);} catch {setReport({title:c.title,fundsRaised:c.raised,fundingGoal:c.fundingGoal,estimatedReach:c.estimatedReach,adSpend:c.adSpend||0,impressions:c.impressions||0,clicks:c.clicks||0,measuredReach:c.measuredReach,metricsNote:"Demo report: no live advertising platform is connected."});}
- };
+    try {
+      const [c, a, p] = await Promise.all([
+        api<{ campaigns: Campaign[] }>("/campaigns"),
+        api<{ activity: ActivityItem[] }>("/activity"),
+        api<any>("/profile"),
+      ]);
 
- // Shared screen header with optional back button.
- const header=(title:string,subtitle?:string,back?:()=>void)=><View style={styles.screenHeader}>{back&&<Pressable onPress={back} style={styles.backButton}><Text style={styles.backText}>‹</Text></Pressable>}<View style={{flex:1}}><Text style={styles.screenTitle}>{title}</Text>{subtitle&&<Text style={styles.screenSubtitle}>{subtitle}</Text>}</View></View>;
- // Home-page hero section with primary actions and an illustrative reach estimate.
- const hero=()=> <View style={styles.hero}>
-  <View style={styles.heroPill}><View style={styles.liveDot}/><Text style={styles.heroPillText}>COMMUNITY-POWERED REACH</Text></View>
-  <Text style={styles.heroTitle}>Good messages{'\n'}deserve to travel.</Text>
-  <Text style={styles.heroCopy}>Bring people together to help important ideas reach audiences beyond their existing networks.</Text>
-  <View style={styles.heroActions}><View style={{flex:1}}><Button title="Explore campaigns" onPress={()=>goTab("Explore")}/></View><View style={{flex:1}}><Button title="Start a campaign" kind="secondary" onPress={()=>openCreate()}/></View></View>
-  <View style={styles.heroEstimate}><Text style={styles.heroEstimateNumber}>~18</Text><View style={{flex:1}}><Text style={styles.heroEstimateTitle}>estimated impressions per ₹1</Text><Text style={styles.heroEstimateSub}>Illustrative model only — actual delivery varies.</Text></View></View>
- </View>;
+      if (c.campaigns?.length) setCampaigns(c.campaigns);
+      setActivity(a.activity || []);
+      setProfile(p);
+    } catch (e: any) {
+      setError(
+        e.message || "Couldn't connect to the API. Demo campaigns remain visible."
+      );
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
 
- // HOME: introduces Amplify and highlights a few campaigns.
- const homeScreen=()=> <ScrollView contentContainerStyle={styles.page} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh}/>}>
-  <View style={styles.brandBar}>
-   <View style={styles.brandLockup}>
-    <View style={styles.brandMark}><Text style={styles.brandMarkText}>A</Text></View>
-    <View><Text style={styles.brandName}>amplify</Text><Text style={styles.brandTagline}>Ideas worth sharing</Text></View>
-   </View>
-   <Pressable accessibilityRole="button" accessibilityLabel="Open profile" onPress={()=>goTab("Profile")} style={styles.brandProfile}>
-    <Text style={styles.brandProfileText}>P</Text>
-   </Pressable>
-  </View>
-  {hero()}
-  <View style={styles.sectionHeading}><Text style={styles.h2}>Campaigns to explore</Text><Pressable onPress={()=>goTab("Explore")}><Text style={styles.link}>View all →</Text></Pressable></View>
-  {visibleCampaigns.slice(0,3).map(c=><CampaignCard key={c.id} campaign={c} onPress={()=>openCampaign(c)} onBack={()=>{setSelected(c);backCampaign();}}/>)}
-  <View style={styles.howCard}><Text style={styles.eyebrow}>SIMPLE BY DESIGN</Text><Text style={styles.h2}>Create. Review. Amplify.</Text><View style={styles.howRow}>{[{n:"01",t:"Create",d:"Tell the story and add sources."},{n:"02",t:"Review",d:"Check content, assets and targeting."},{n:"03",t:"Amplify",d:"Community funding supports distribution."}].map(x=><View key={x.n} style={styles.howStep}><Text style={styles.howNum}>{x.n}</Text><Text style={styles.howTitle}>{x.t}</Text><Text style={styles.tiny}>{x.d}</Text></View>)}</View><Text style={styles.disclaimer}>Contributions pay for message distribution, not direct support for the cause.</Text></View>
-  {error!==""&&<Text style={styles.errorText}>{error}</Text>}
- </ScrollView>;
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
 
- // EXPLORE: search campaigns, filter by category, and sort results.
- const exploreScreen=()=> <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh}/>}>
-  {header("Explore","Find a message worth amplifying")}
-  <TextInput value={query} onChangeText={setQuery} placeholder="Search campaigns, topics or creators" placeholderTextColor="#9AA39B" style={styles.searchInput}/>
-  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom:14}}>{CATEGORIES.map(c=><Chip key={c} label={c} selected={category===c} onPress={()=>setCategory(c)}/>)}</ScrollView>
-  <View style={styles.rowBetween}><Text style={styles.h2}>{visibleCampaigns.length} campaigns</Text><View style={{flexDirection:"row",gap:6}}><Chip label="Recent" selected={sort==="recent"} onPress={()=>setSort("recent")}/><Chip label="Progress" selected={sort==="progress"} onPress={()=>setSort("progress")}/><Chip label="Ending" selected={sort==="ending"} onPress={()=>setSort("ending")}/></View></View>
-  {visibleCampaigns.map(c=><CampaignCard key={c.id} campaign={c} onPress={()=>openCampaign(c)} onBack={()=>{setSelected(c);backCampaign();}}/>)}
-  {visibleCampaigns.length===0&&<View style={styles.empty}><Text style={styles.emptyIcon}>⌕</Text><Text style={styles.h2}>No campaigns found</Text><Text style={styles.mutedText}>Try a different search or category.</Text><Button title="Clear filters" kind="secondary" onPress={()=>{setQuery("");setCategory("All");}}/></View>}
- </ScrollView>;
+  const visibleCampaigns = useMemo(() => {
+    let rows = [...campaigns];
 
- // CAMPAIGN DETAILS: story, sources, audience, funding status, and available actions.
- const detailScreen=()=> <ScrollView contentContainerStyle={styles.page} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh}/>}>
-  {header("Campaign story","Read the message and its sources",()=>setScreen("tabs"))}
-  <Image source={{uri:selected.coverImage}} style={styles.detailImage}/>
-  <Text style={styles.eyebrow}>{selected.category.toUpperCase()} · CAMPAIGN</Text>
-  <Text style={styles.detailTitle}>{selected.title}</Text>
-  <Text style={styles.mutedText}>By {selected.creatorName} · Demo campaign</Text>
-  <Text style={styles.storyIntro}>{selected.storyIntro||selected.summary}</Text>
-  {(selected.storySections||[]).map((s,i)=><View key={i} style={styles.storySection}><Text style={styles.h2}>{s.heading}</Text><Text style={styles.bodyText}>{s.body}</Text></View>)}
-  <View style={styles.card}><Text style={styles.h2}>Supporting sources</Text>{(selected.sources||[]).map((s,i)=><Pressable key={i} onPress={()=>Linking.openURL(s.url)} style={styles.sourceRow}><Text style={styles.sourceIcon}>↗</Text><View style={{flex:1}}><Text style={styles.sourceTitle}>{s.title}</Text><Text style={styles.linkSmall}>{s.url}</Text></View></Pressable>)}{(!selected.sources||!selected.sources.length)&&<Text style={styles.mutedText}>No sources have been added yet.</Text>}</View>
-  <View style={styles.card}><Text style={styles.h2}>Funding & reach</Text><View style={styles.rowBetween}><View><Text style={styles.metricValue}>{money(selected.raised)}</Text><Text style={styles.tiny}>raised so far</Text></View><View style={{alignItems:"flex-end"}}><Text style={styles.metricValue}>{money(selected.fundingGoal)}</Text><Text style={styles.tiny}>funding goal</Text></View></View><Progress value={selected.raised/selected.fundingGoal*100}/><View style={styles.rowBetween}><Text style={styles.mutedText}>{Math.round(selected.raised/selected.fundingGoal*100)}% funded</Text><Text style={styles.mutedText}>{Number(selected.estimatedReach||0).toLocaleString("en-IN")} estimated reach at goal</Text></View><Text style={styles.disclaimer}>Estimates are not guarantees. Funding completion does not automatically launch advertising.</Text></View>
-  <View style={styles.card}><Text style={styles.h2}>Intended audience</Text><Text style={styles.bodyText}>Location: {selected.audienceLocation||"Not specified"}</Text><Text style={styles.bodyText}>Interests: {(selected.audienceInterests||[]).join(", ")||"Broad audience"}</Text><Text style={styles.bodyText}>Channels: {(selected.channels||[]).join(", ")||"To be determined in review"}</Text><Text style={styles.bodyText}>Duration: {selected.durationDays} days</Text></View>
-  <View style={styles.card}><Text style={styles.h2}>Where your contribution goes</Text><Text style={styles.bodyText}>Your contribution supports the cost of distributing this campaign message to a wider audience. It is not a direct donation to the cause or creator.</Text><Text style={styles.bodyText}>Demo fee model: 5% platform fee + 2% transaction fee. Unspent-fund and refund handling would be finalized under campaign policies before a real launch.</Text></View>
-  <View style={styles.actionStack}><Button title="Back this campaign" onPress={backCampaign}/><Button title="View distribution report" kind="secondary" onPress={()=>openReport(selected)}/><Button title="Share campaign" kind="ghost" onPress={()=>Alert.alert("Share campaign",`Campaign link: amplify.demo/campaign/${selected.id}`)}/></View>
- </ScrollView>;
+    if (tab === "Explore" || query || category !== "All") {
+      const q = query.trim().toLowerCase();
 
- // CREATE CAMPAIGN: five-step form for basics, story/sources, ad creative, audience,
- // and final review. Validation happens in submitDraft().
- const createScreen=()=> <KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==="ios"?"padding":undefined}>
-  <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
-   {header("Create a campaign","Your draft saves as you work",()=>setScreen("tabs"))}
-   <View style={styles.stepper}>{STEPS.map((s,i)=><Pressable key={s} onPress={()=>{if(i<step)setStep(i);}} style={styles.stepperItem}><View style={[styles.stepCircle,i===step&&styles.stepCircleActive,i<step&&styles.stepCircleDone]}><Text style={[styles.stepCircleText,(i===step||i<step)&&{color:"white"}]}>{i<step?"✓":i+1}</Text></View><Text style={[styles.stepLabel,i===step&&{color:colors.green,fontWeight:"800"}]}>{s}</Text></Pressable>)}</View>
-   <View style={styles.stepCard}><Text style={styles.eyebrow}>STEP {step+1} OF 5</Text><Text style={styles.h2}>{STEPS[step]}</Text>
-   {step===0&&<>
-    <Text style={styles.bodyText}>Describe the message you want more people to see. The start of your title may be used as an ad headline.</Text>
-    <Field label="Campaign title *" value={draft.title} onChangeText={(v:string)=>patchDraft("title",v)} placeholder="A clear, specific headline" maxLength={60}/><Text style={styles.tiny}>{(draft.title||"").length}/60 characters</Text>
-    <Text style={styles.label}>Category *</Text><View style={styles.chipWrap}>{CATEGORIES.filter(c=>c!=="All").map(c=><Chip key={c} label={c} selected={draft.category===c} onPress={()=>patchDraft("category",c)}/>)}</View>
-    <Field label="Creator / organization name *" value={draft.creatorName} onChangeText={(v:string)=>patchDraft("creatorName",v)} placeholder="Who is behind this message?"/>
-    <Field label="Short summary" value={draft.summary} onChangeText={(v:string)=>patchDraft("summary",v)} placeholder="What should people understand?" multiline/>
-    <Field label="Cover image URL (optional)" value={draft.coverImage} onChangeText={(v:string)=>patchDraft("coverImage",v)} placeholder="https://…"/>
-   </>}
-   {step===1&&<>
-    <Text style={styles.bodyText}>Write like a clear article. Keep sources visible to the audience. At least one credible source is required to submit.</Text>
-    <Field label="Story introduction *" value={draft.storyIntro} onChangeText={(v:string)=>patchDraft("storyIntro",v)} placeholder="Introduce the message and why it matters…" multiline/>
-    <Field label="Section heading" value={draft.storySections?.[0]?.heading||""} onChangeText={(v:string)=>patchDraft("storySections",[{...(draft.storySections?.[0]||{}),heading:v,body:draft.storySections?.[0]?.body||""}])} placeholder="What people should know"/>
-    <Field label="Story section" value={draft.storySections?.[0]?.body||""} onChangeText={(v:string)=>patchDraft("storySections",[{...(draft.storySections?.[0]||{}),heading:draft.storySections?.[0]?.heading||"What people should know",body:v}])} placeholder="Add context and useful details…" multiline/>
-    <Field label="Source title *" value={draft.sources?.[0]?.title||""} onChangeText={(v:string)=>patchDraft("sources",[{...(draft.sources?.[0]||{}),title:v,url:draft.sources?.[0]?.url||""}])} placeholder="Publisher or report name"/>
-    <Field label="Source URL *" value={draft.sources?.[0]?.url||""} onChangeText={(v:string)=>patchDraft("sources",[{...(draft.sources?.[0]||{}),title:draft.sources?.[0]?.title||"",url:v}])} placeholder="https://example.org/source"/>
-    <Button title="＋ Add another source" kind="secondary" onPress={()=>patchDraft("sources",[...(draft.sources||[]),{title:"",url:""}])}/>
-    {(draft.sources||[]).slice(1).map((s,i)=><View key={i} style={styles.nestedCard}><Field label={`Source ${i+2} title`} value={s.title} onChangeText={(v:string)=>patchDraft("sources",(draft.sources||[]).map((x,j)=>j===i+1?{...x,title:v}:x))} placeholder="Source title"/><Field label="Source URL" value={s.url} onChangeText={(v:string)=>patchDraft("sources",(draft.sources||[]).map((x,j)=>j===i+1?{...x,url:v}:x))} placeholder="https://…"/></View>)}
-   </>}
-   {step===2&&<>
-    <Text style={styles.bodyText}>Your editorial story and advertising creative serve different purposes. These are demo creative settings; no ad network is connected.</Text>
-    <Field label="Ad headline *" value={draft.adHeadline} onChangeText={(v:string)=>patchDraft("adHeadline",v)} placeholder="Short message for an ad" maxLength={60}/>
-    <Field label="Ad description" value={draft.adDescription} onChangeText={(v:string)=>patchDraft("adDescription",v)} placeholder="One line that invites people to learn more" multiline maxLength={180}/>
-    <Field label="Call to action" value={draft.cta} onChangeText={(v:string)=>patchDraft("cta",v)} placeholder="Learn more"/>
-    <Field label="Advertising image URL (optional)" value={draft.coverImage} onChangeText={(v:string)=>patchDraft("coverImage",v)} placeholder="Reuse cover or paste image URL"/>
-    <View style={styles.adPreview}><Text style={styles.eyebrow}>PLACEMENT PREVIEW · DEMO</Text><Text style={styles.adPreviewTitle}>{draft.adHeadline||draft.title||"Your ad headline"}</Text><Text style={styles.bodyText}>{draft.adDescription||draft.summary||"Your short ad description appears here."}</Text><Text style={styles.miniButtonText}>{draft.cta||"Learn more"} ↗</Text></View>
-   </>}
-   {step===3&&<>
-    <Text style={styles.bodyText}>Choose an intended audience. Final settings may change during review. Estimated reach is not guaranteed.</Text>
-    <Field label="Target location *" value={draft.audienceLocation} onChangeText={(v:string)=>patchDraft("audienceLocation",v)} placeholder="e.g. Hyderabad, Telangana"/>
-    <Text style={styles.label}>Audience interests</Text><View style={styles.chipWrap}>{["Environment","Education","Health","Science","Community","Arts","Business","Public policy","Families","Students"].map(c=><Chip key={c} label={c} selected={(draft.audienceInterests||[]).includes(c)} onPress={()=>patchDraft("audienceInterests",(draft.audienceInterests||[]).includes(c)?(draft.audienceInterests||[]).filter(x=>x!==c):[...(draft.audienceInterests||[]),c])}/>)}</View>
-    <Text style={styles.label}>Distribution channels</Text><View style={styles.chipWrap}>{["Social feeds","Display","Video"].map(c=><Chip key={c} label={c} selected={(draft.channels||[]).includes(c)} onPress={()=>patchDraft("channels",(draft.channels||[]).includes(c)?(draft.channels||[]).filter(x=>x!==c):[...(draft.channels||[]),c])}/>)}</View>
-    <Field label="Campaign duration (days)" value={String(draft.durationDays??14)} onChangeText={(v:string)=>patchDraft("durationDays",Math.max(1,Math.min(90,Number(v)||1)))} keyboardType="numeric"/>
-    <Field label="Proposed advertising budget (₹)" value={String(draft.adBudget??9000)} onChangeText={(v:string)=>patchDraft("adBudget",Math.max(0,Number(v)||0))} keyboardType="numeric"/>
-    <View style={styles.reachBox}><Text style={styles.metricValue}>~{estimateReach(Number(draft.adBudget||0))}</Text><Text style={styles.tiny}>estimated impressions based on a demo assumption of 18 per ₹1; not guaranteed reach</Text></View>
-   </>}
-   {step===4&&<>
-    <Text style={styles.bodyText}>Review your campaign details before sending it for moderation. Your funding goal is set here by you; it is never automatically overwritten.</Text>
-    <View style={styles.previewCard}>{draft.coverImage?<Image source={{uri:draft.coverImage}} style={styles.previewImage}/>:null}<Text style={styles.eyebrow}>{draft.category||"CATEGORY"}</Text><Text style={styles.detailTitle}>{draft.title||"Untitled campaign"}</Text><Text style={styles.mutedText}>By {draft.creatorName||"Creator"}</Text><Text style={styles.bodyText}>{draft.summary||draft.storyIntro||"Campaign summary preview."}</Text><Text style={styles.h2}>Story</Text><Text style={styles.bodyText}>{draft.storyIntro||"No story added yet."}</Text><Text style={styles.h2}>Sources ({(draft.sources||[]).filter(s=>s.title&&s.url).length})</Text>{(draft.sources||[]).filter(s=>s.title&&s.url).map((s,i)=><Text key={i} style={styles.linkSmall}>{s.title} · {s.url}</Text>)}<Text style={styles.h2}>Ad creative</Text><Text style={styles.bodyText}>{draft.adHeadline||"No headline added"}</Text><Text style={styles.h2}>Audience</Text><Text style={styles.bodyText}>{draft.audienceLocation||"Not set"} · {(draft.channels||[]).join(", ")}</Text><Text style={styles.h2}>Funding goal</Text><Text style={styles.metricValue}>{money(Number(draft.fundingGoal||10000))}</Text><Text style={styles.tiny}>Proposed ad budget: {money(Number(draft.adBudget||0))} · ~{estimateReach(Number(draft.adBudget||0))} estimated impressions</Text></View>
-    <Pressable onPress={()=>setRulesAccepted(!rulesAccepted)} style={styles.checkRow}><View style={[styles.checkbox,rulesAccepted&&styles.checkboxChecked]}>{rulesAccepted&&<Text style={{color:"white"}}>✓</Text>}</View><Text style={styles.bodyText}>I confirm this campaign follows the platform rules, includes accurate sources, and may be reviewed before it is eligible for funding.</Text></Pressable>
-    <Text style={styles.disclaimer}>Submission is not approval. Contributions support message distribution, not the cause directly. Funding completion does not automatically launch ads.</Text>
-   </>}
-   <View style={styles.rowBetween}><Button title="Save draft" kind="secondary" onPress={()=>saveDraft(true)}/><Text style={styles.tiny}>{saving?"Saving…":autoSaved?"✓ Auto-saved":"Auto-save on"}</Text></View>
-   <View style={styles.rowBetween}>{step>0&&<View style={{flex:1}}><Button title="← Back" kind="ghost" onPress={()=>setStep(s=>Math.max(0,s-1))}/></View>}<View style={{flex:1}}>{step<4?<Button title="Continue →" onPress={()=>setStep(s=>Math.min(4,s+1))}/>:<Button title="Submit for review" onPress={submitDraft}/>}</View></View>
-   {step===4&&<Button title="Preview campaign page" kind="ghost" onPress={()=>Alert.alert(draft.title||"Campaign preview",`${draft.summary||draft.storyIntro||""}\n\nFunding goal: ${money(Number(draft.fundingGoal||10000))}\n\nThis preview is a draft; it has not been published.`)}/>}
-   </View>
-  </ScrollView>
- </KeyboardAvoidingView>;
+      rows = rows.filter((c) => {
+        const matchesCategory = category === "All" || c.category === category;
+        const matchesQuery =
+          !q ||
+          [c.title, c.summary, c.creatorName, c.category].some((v) =>
+            String(v || "").toLowerCase().includes(q)
+          );
 
- // CONTRIBUTION CHECKOUT: calculate demo fees and show a simulated payment action.
- const contributeScreen=()=> {
-  const amount=Number(contribution)||0, platformFee=Math.round(amount*.05),transactionFee=Math.round(amount*.02),total=amount+platformFee+transactionFee;
-  return <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
-   {header("Back this campaign","Support message distribution",()=>setScreen("detail"))}
-   <View style={styles.card}><Text style={styles.eyebrow}>{selected.category.toUpperCase()}</Text><Text style={styles.h2}>{selected.title}</Text><Text style={styles.mutedText}>By {selected.creatorName}</Text><Text style={styles.bodyText}>{selected.summary}</Text><Progress value={selected.raised/selected.fundingGoal*100}/><Text style={styles.mutedText}>{money(selected.raised)} raised of {money(selected.fundingGoal)}</Text></View>
-   <Text style={styles.h2}>Choose a contribution</Text><Text style={styles.mutedText}>Your contribution helps pay for promotion so more people can see this message.</Text>
-   <View style={styles.amountGrid}>{[100,250,500,1000].map(n=><Pressable key={n} onPress={()=>setContribution(String(n))} style={[styles.amountOption,String(n)===contribution&&styles.amountOptionSelected]}><Text style={[styles.amountOptionText,String(n)===contribution&&{color:colors.green}]}>{money(n)}</Text></Pressable>)}</View>
-   <Field label="Custom amount (₹)" value={contribution} onChangeText={setContribution} keyboardType="numeric" placeholder="Enter amount"/>
-   <View style={styles.reachBox}><Text style={styles.metricValue}>~{estimateReach(Math.max(0,amount))}</Text><Text style={styles.tiny}>estimated impressions associated with this amount, using the demo model</Text></View>
-   <View style={styles.card}><Text style={styles.h2}>Review contribution</Text><View style={styles.feeRow}><Text style={styles.mutedText}>Contribution to distribution</Text><Text style={styles.bodyText}>{money(amount)}</Text></View><View style={styles.feeRow}><Text style={styles.mutedText}>Platform fee (5%)</Text><Text style={styles.bodyText}>{money(platformFee)}</Text></View><View style={styles.feeRow}><Text style={styles.mutedText}>Transaction fee (2%)</Text><Text style={styles.bodyText}>{money(transactionFee)}</Text></View><View style={[styles.feeRow,{borderTopWidth:1,borderColor:colors.line,paddingTop:12}]}><Text style={styles.h2}>Total (simulated)</Text><Text style={styles.h2}>{money(total)}</Text></View><Text style={styles.disclaimer}>No real payment is taken. Backer name is private by default. Actual reach varies and is not guaranteed.</Text></View>
-   <Button title={`Simulate successful payment · ${money(total)}`} onPress={doContribution}/>
-   <Button title="Cancel" kind="ghost" onPress={()=>setScreen("detail")}/>
-  </ScrollView>;
- };
+        return matchesCategory && matchesQuery;
+      });
+    }
 
- // RECEIPT: shows the result returned by the simulated contribution flow.
- const receiptScreen=()=> <ScrollView contentContainerStyle={styles.page}>
-  <View style={styles.successIcon}><Text style={{fontSize:34,color:colors.green}}>✓</Text></View><Text style={[styles.screenTitle,{textAlign:"center"}]}>Contribution confirmed</Text><Text style={[styles.mutedText,{textAlign:"center"}]}>This is a simulated payment. No real money was collected.</Text>
-  <View style={styles.receiptCard}><Text style={styles.eyebrow}>RECEIPT · {receipt?.id||"DEMO"}</Text><Text style={styles.receiptAmount}>{money(receipt?.total||0)}</Text><Text style={styles.mutedText}>Total simulated payment</Text><View style={styles.feeRow}><Text style={styles.mutedText}>Contribution</Text><Text style={styles.bodyText}>{money(receipt?.amount||0)}</Text></View><View style={styles.feeRow}><Text style={styles.mutedText}>Fees</Text><Text style={styles.bodyText}>{money((receipt?.platformFee||0)+(receipt?.transactionFee||0))}</Text></View><View style={styles.feeRow}><Text style={styles.mutedText}>Campaign</Text><Text style={[styles.bodyText,{flex:1,textAlign:"right"}]}>{receipt?.campaignTitle}</Text></View><View style={styles.feeRow}><Text style={styles.mutedText}>Estimated impressions</Text><Text style={styles.bodyText}>{Number(receipt?.estimatedReach||0).toLocaleString("en-IN")}</Text></View></View>
-  {receiptCampaign&&<View style={styles.card}><Text style={styles.h2}>Campaign progress updated</Text><Text style={styles.bodyText}>{money(receiptCampaign.raised)} raised of {money(receiptCampaign.fundingGoal)}.</Text><Progress value={receiptCampaign.raised/receiptCampaign.fundingGoal*100}/></View>}
-  <Button title="View campaign" onPress={()=>{if(receiptCampaign)setSelected(receiptCampaign);setScreen("detail");}}/><Button title="Done" kind="secondary" onPress={()=>goTab("Activity")}/>
- </ScrollView>;
+    if (sort === "progress") {
+      rows.sort((a, b) => progressOf(b) - progressOf(a));
+    }
 
- // ACTIVITY: displays in-app demo updates and links back to related campaigns.
- const activityScreen=()=> <ScrollView contentContainerStyle={styles.page} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh}/>}>
-  {header("Activity","Updates from campaigns you care about")}
-  {activity.length===0?<View style={styles.empty}><Text style={styles.h2}>You're all caught up</Text><Text style={styles.mutedText}>Campaign submissions, contribution receipts and milestones will appear here.</Text></View>:activity.map(a=><View key={a.id} style={styles.activityItem}><View style={styles.activityDot}/><View style={{flex:1}}><Text style={styles.activityTitle}>{a.title}</Text><Text style={styles.bodyText}>{a.body}</Text><Text style={styles.tiny}>{new Date(a.createdAt).toLocaleString()}</Text>{a.campaignId&&<Pressable onPress={()=>{const c=campaigns.find(x=>x.id===a.campaignId);if(c)openCampaign(c);}}><Text style={styles.linkSmall}>View campaign →</Text></Pressable>}</View></View>)}
-  <Text style={styles.disclaimer}>Notifications are in-app demo events. Push and email delivery are not configured.</Text>
- </ScrollView>;
+    if (sort === "ending") {
+      rows.sort(
+        (a, b) =>
+          new Date(a.deadline || 0).getTime() -
+          new Date(b.deadline || 0).getTime()
+      );
+    }
 
- // PROFILE: displays demo account details, campaign work, and help/information links.
- const profileScreen=()=> <ScrollView contentContainerStyle={styles.page} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh}/>}>
-  {header("Profile","Your campaigns and contributions")}
-  <View style={styles.profileHero}><View style={styles.avatar}><Text style={styles.avatarText}>PK</Text></View><View style={{flex:1}}><Text style={styles.h2}>{profile?.user?.name||"Praveen Kumar"}</Text><Text style={styles.mutedText}>{profile?.user?.email||"praveen.demo@example.com"}</Text><Text style={styles.tiny}>Demo account · backer names private by default</Text></View></View>
-  <View style={styles.statsRow}><View style={styles.statCard}><Text style={styles.metricValue}>{profile?.counts?.created??campaigns.filter(c=>c.status==="draft"||c.status==="submitted_for_review").length}</Text><Text style={styles.tiny}>Campaigns</Text></View><View style={styles.statCard}><Text style={styles.metricValue}>{profile?.counts?.backed??0}</Text><Text style={styles.tiny}>Contributions</Text></View></View>
-  <Text style={styles.h2}>Your campaign work</Text>
-  {campaigns.filter(c=>c.status==="draft"||c.status==="submitted_for_review"||c.status==="changes_requested"||c.creatorName==="Praveen Kumar").map(c=><Pressable key={c.id} style={styles.listRow} onPress={()=>c.status==="draft"||c.status==="changes_requested"?openCreate(c):openReport(c)}><View style={{flex:1}}><Text style={styles.cardTitle}>{c.title}</Text><Text style={styles.tiny}>{c.status.replaceAll("_"," ")} · {money(c.raised)} raised</Text></View><Text style={styles.link}>›</Text></Pressable>)}
-  <Text style={styles.h2}>Help & information</Text>
-  {["How it works","FAQs","Community guidelines","Privacy","Terms","Contact support"].map(t=><Pressable key={t} style={styles.listRow} onPress={()=>{setInfoTitle(t);setScreen("info");}}><Text style={styles.bodyText}>{t}</Text><Text style={styles.link}>↗</Text></Pressable>)}
-  <Button title="Refresh account data" kind="secondary" onPress={refresh}/>
- </ScrollView>;
+    return rows.filter((c) =>
+      ["available_for_funding", "promoting", "completed"].includes(c.status)
+    );
+  }, [campaigns, tab, query, category, sort]);
 
- // REPORT: separates estimated figures from measured results. Live ad analytics
- // are unavailable because no advertising platform is connected.
- const reportScreen=()=> <ScrollView contentContainerStyle={styles.page}>
-  {header("Distribution report","Estimated and measured results",()=>setScreen("detail"))}
-  <View style={styles.card}><Text style={styles.eyebrow}>CAMPAIGN</Text><Text style={styles.h2}>{report?.title||selected.title}</Text><Text style={styles.status}>{(report?.status||selected.status).replaceAll("_"," ")}</Text></View>
-  <View style={styles.reportGrid}>{[{label:"Funds raised",value:money(report?.fundsRaised??selected.raised)},{label:"Funding goal",value:money(report?.fundingGoal??selected.fundingGoal)},{label:"Ad spend",value:money(report?.adSpend??0)},{label:"Impressions",value:Number(report?.impressions??0).toLocaleString("en-IN")},{label:"Clicks",value:Number(report?.clicks??0).toLocaleString("en-IN")},{label:"Estimated reach",value:Number(report?.estimatedReach??selected.estimatedReach).toLocaleString("en-IN")}].map(x=><View key={x.label} style={styles.reportTile}><Text style={styles.tiny}>{x.label}</Text><Text style={styles.reportValue}>{x.value}</Text></View>)}</View>
-  <View style={styles.card}><Text style={styles.h2}>Measured reach</Text><Text style={styles.metricValue}>{report?.measuredReach==null?"Not available":Number(report.measuredReach).toLocaleString("en-IN")}</Text><Text style={styles.bodyText}>{report?.metricsNote||"No live advertising platform is connected. Estimated and measured values are kept separate."}</Text></View>
-  <Text style={styles.disclaimer}>Funding completion does not imply advertising has launched. Distribution begins only after approval, budget and advertising setup requirements are met.</Text>
- </ScrollView>;
+  const goTab = (name: string) => {
+    setTab(name);
+    setScreen("tabs");
+    setError("");
+  };
 
- // INFORMATION: simple explanatory content for help, FAQs, privacy, terms, etc.
- const infoScreen=()=> <ScrollView contentContainerStyle={styles.page}>{header(infoTitle,"Amplify",()=>setScreen("tabs"))}<View style={styles.card}><Text style={styles.h2}>{infoTitle}</Text><Text style={styles.bodyText}>Amplify helps people fund the distribution of messages so they can reach audiences beyond existing networks.</Text><Text style={styles.bodyText}>Create a campaign, submit it for review, and—if approved—make it available for community funding. Contributions pay for message amplification, not direct support for the cause or creator.</Text><Text style={styles.bodyText}>Reach is an estimate, not a guarantee. Review and advertising setup must be complete before promotion begins.</Text><Text style={styles.bodyText}>For this prototype, checkout and account details are simulated. No real payments or advertising delivery occur.</Text></View></ScrollView>;
+  const openCampaign = (campaign: Campaign) => {
+    setSelected(campaign);
+    setScreen("detail");
+  };
 
- // Choose which screen component to display based on the current screen and tab.
- const renderContent=()=>{
-  if(screen==="detail") return detailScreen();
-  if(screen==="create") return createScreen();
-  if(screen==="contribute") return contributeScreen();
-  if(screen==="receipt") return receiptScreen();
-  if(screen==="report") return reportScreen();
-  if(screen==="info") return infoScreen();
-  if(tab==="Home") return homeScreen();
-  if(tab==="Explore") return exploreScreen();
-  if(tab==="Create") return <ScrollView contentContainerStyle={styles.page}>{header("Create","Turn your message into a campaign")}<View style={styles.createHero}><Text style={styles.createHeroIcon}>✳</Text><Text style={styles.h2}>Every great campaign starts with a clear message.</Text><Text style={styles.bodyText}>Build a story, add supporting sources, preview ad creative and choose who you want to reach.</Text><Button title="Create manually →" onPress={()=>openCreate()}/><Button title="Create with your voice (demo)" kind="secondary" onPress={()=>Alert.alert("Voice creation demo","Voice capture is not connected in this build. You can enter the same idea manually; all fields remain editable.",[{text:"Continue manually",onPress:()=>openCreate()}])}/></View><Text style={styles.h2}>Resume a draft</Text>{campaigns.filter(c=>c.status==="draft"||c.status==="changes_requested").map(c=><Pressable key={c.id} style={styles.listRow} onPress={()=>openCreate(c)}><View style={{flex:1}}><Text style={styles.cardTitle}>{c.title}</Text><Text style={styles.tiny}>{c.status.replaceAll("_"," ")}</Text></View><Text style={styles.link}>Resume →</Text></Pressable>)}{campaigns.filter(c=>c.status==="draft"||c.status==="changes_requested").length===0&&<Text style={styles.mutedText}>No saved drafts yet. Your work will appear here.</Text>}</ScrollView>;
-  if(tab==="Activity") return activityScreen();
-  return profileScreen();
- };
+  const openCreate = (existing?: Campaign) => {
+    setDraft(
+      existing
+        ? { ...existing }
+        : {
+            title: "",
+            category: "",
+            creatorName: "Praveen Kumar",
+            summary: "",
+            coverImage: "",
+            storyIntro: "",
+            storySections: [{ heading: "Why this matters", body: "" }],
+            sources: [{ title: "", url: "" }],
+            adHeadline: "",
+            adDescription: "",
+            cta: "Learn more",
+            audienceLocation: "India",
+            audienceInterests: [],
+            channels: ["Social feeds"],
+            durationDays: 14,
+            fundingGoal: 10000,
+            adBudget: 9000,
+          }
+    );
+    setStep(0);
+    setRulesAccepted(false);
+    setAutoSaved(false);
+    setScreen("create");
+  };
 
- return <SafeAreaView style={styles.safe} edges={["top","left","right"]}>
-  <StatusBar barStyle="dark-content" backgroundColor={colors.bg}/>
-  {loading?<View style={styles.center}><ActivityIndicator size="large" color={colors.green}/></View>:renderContent()}
-  {screen==="tabs"&&<View style={styles.bottomNav}>{[{name:"Home",icon:"⌂"},{name:"Explore",icon:"⌕"},{name:"Create",icon:"＋"},{name:"Activity",icon:"◷"},{name:"Profile",icon:"○"}].map(t=><Pressable key={t.name} onPress={()=>goTab(t.name)} style={styles.navItem}><Text style={[styles.navIcon,tab===t.name&&styles.navActive]}>{t.icon}</Text><Text style={[styles.navLabel,tab===t.name&&styles.navLabelActive]}>{t.name}</Text>{tab===t.name&&<View style={styles.navIndicator}/>}</Pressable>)}</View>}
- </SafeAreaView>;
+  const patchDraft = (key: string, value: any) => {
+    setDraft((prev) => ({ ...prev, [key]: value }));
+    setAutoSaved(false);
+  };
+
+  const saveDraft = useCallback(
+    async (showMessage = false) => {
+      if (!draft.title && !draft.category && !draft.summary) {
+        if (showMessage) {
+          Alert.alert("Start your draft", "Enter a title or summary first.");
+        }
+        return;
+      }
+
+      setSaving(true);
+
+      try {
+        const payload = {
+          ...draft,
+          title: draft.title || "Untitled campaign",
+          category: draft.category || "Other",
+          creatorName: draft.creatorName || "Creator",
+          fundingGoal: Number(draft.fundingGoal || 10000),
+          durationDays: Number(draft.durationDays || 14),
+          adBudget: Number(draft.adBudget || 0),
+        };
+
+        const result = draft.id
+          ? await api<{ campaign: Campaign }>(`/campaigns/${draft.id}`, {
+              method: "PUT",
+              body: JSON.stringify(payload),
+            })
+          : await api<{ campaign: Campaign }>("/campaigns", {
+              method: "POST",
+              body: JSON.stringify(payload),
+            });
+
+        setDraft(result.campaign);
+        setCampaigns((prev) => [
+          result.campaign,
+          ...prev.filter((c) => c.id !== result.campaign.id),
+        ]);
+        setAutoSaved(true);
+
+        if (showMessage) {
+          Alert.alert("Draft saved", "Your draft was saved to the server.");
+        }
+      } catch (e: any) {
+        if (showMessage) {
+          Alert.alert(
+            "Couldn't save to server",
+            `${e.message} Keep the screen open and try again.`
+          );
+        }
+      } finally {
+        setSaving(false);
+      }
+    },
+    [draft]
+  );
+
+  useEffect(() => {
+    if (screen !== "create") return;
+
+    const timer = setTimeout(() => {
+      if (draft.title || draft.summary || draft.storyIntro) {
+        saveDraft(false);
+      }
+    }, 1600);
+
+    return () => clearTimeout(timer);
+  }, [draft, screen, saveDraft]);
+
+  const submitDraft = async () => {
+    if (
+      !draft.title?.trim() ||
+      draft.title.length > 60 ||
+      !draft.category ||
+      !draft.creatorName?.trim()
+    ) {
+      Alert.alert("Complete the basics", "Add a title, category and creator name.");
+      setStep(0);
+      return;
+    }
+
+    if ((draft.storyIntro || "").trim().length < 20) {
+      Alert.alert("Add your story", "Please write at least 20 characters.");
+      setStep(1);
+      return;
+    }
+
+    if (
+      !(draft.sources || []).some(
+        (s) => s.title.trim() && /^https?:\/\//i.test(s.url)
+      )
+    ) {
+      Alert.alert("Add a source", "Provide at least one source with an HTTP(S) URL.");
+      setStep(1);
+      return;
+    }
+
+    if (!draft.adHeadline?.trim()) {
+      Alert.alert("Add an ad headline", "A short campaign message is required.");
+      setStep(2);
+      return;
+    }
+
+    if (!draft.audienceLocation?.trim()) {
+      Alert.alert("Choose an audience", "Enter a target location.");
+      setStep(3);
+      return;
+    }
+
+    if (!rulesAccepted) {
+      Alert.alert("Confirmation required", "Confirm the campaign rules.");
+      setStep(4);
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const payload = {
+        ...draft,
+        fundingGoal: Number(draft.fundingGoal || 10000),
+        durationDays: Number(draft.durationDays || 14),
+        adBudget: Number(draft.adBudget || 0),
+      };
+
+      const saved = draft.id
+        ? await api<{ campaign: Campaign }>(`/campaigns/${draft.id}`, {
+            method: "PUT",
+            body: JSON.stringify(payload),
+          })
+        : await api<{ campaign: Campaign }>("/campaigns", {
+            method: "POST",
+            body: JSON.stringify(payload),
+          });
+
+      const result = await api<{ campaign: Campaign }>(
+        `/campaigns/${saved.campaign.id}/submit`,
+        {
+          method: "POST",
+          body: JSON.stringify({ rulesAccepted: true }),
+        }
+      );
+
+      setCampaigns((prev) => [
+        result.campaign,
+        ...prev.filter((c) => c.id !== result.campaign.id),
+      ]);
+      setDraft(result.campaign);
+      setScreen("tabs");
+      setTab("Activity");
+      await refresh();
+
+      Alert.alert(
+        "Submitted for review",
+        "Your campaign is awaiting review. Submission does not mean approval or automatic advertising."
+      );
+    } catch (e: any) {
+      Alert.alert("Submission failed", e.message || "Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const backCampaign = () => {
+    setContribution("250");
+    setScreen("contribute");
+  };
+
+  const doContribution = async () => {
+    const amount = Number(contribution);
+
+    if (!Number.isFinite(amount) || amount < 50 || amount > 100000) {
+      Alert.alert("Invalid amount", "Choose between ₹50 and ₹1,00,000.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const result = await api<{ receipt: any; campaign: Campaign }>(
+        `/campaigns/${selected.id}/contributions`,
+        {
+          method: "POST",
+          body: JSON.stringify({ amount, simulate: "success" }),
+        }
+      );
+
+      setReceipt(result.receipt);
+      setReceiptCampaign(result.campaign);
+      setSelected(result.campaign);
+      setCampaigns((prev) =>
+        prev.map((c) => (c.id === result.campaign.id ? result.campaign : c))
+      );
+      setScreen("receipt");
+      await refresh();
+    } catch (e: any) {
+      Alert.alert("Contribution failed", e.message || "Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openReport = async (campaign: Campaign) => {
+    setSelected(campaign);
+    setReport(null);
+    setScreen("report");
+
+    try {
+      const result = await api<{ report: any }>(
+        `/campaigns/${campaign.id}/report`
+      );
+      setReport(result.report);
+    } catch {
+      setReport({
+        title: campaign.title,
+        fundsRaised: campaign.raised,
+        fundingGoal: campaign.fundingGoal,
+        estimatedReach: campaign.estimatedReach,
+        adSpend: campaign.adSpend || 0,
+        impressions: campaign.impressions || 0,
+        clicks: campaign.clicks || 0,
+        measuredReach: campaign.measuredReach,
+        metricsNote: "Demo report. No live advertising platform is connected.",
+      });
+    }
+  };
+
+  // ============================================================
+  // HOME
+  // ============================================================
+
+  const homeScreen = () => (
+    <ScrollView
+      contentContainerStyle={S.page}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={C.purple} />
+      }
+    >
+      <View style={S.brandBar}>
+        <View style={S.brandLockup}>
+          <View style={S.brandIcon}>
+            <Text style={S.brandIconText}>A</Text>
+            <View style={S.brandIconDot} />
+          </View>
+          <View>
+            <Text style={S.brandName}>amplify<Text style={{ color: C.purple }}>.</Text></Text>
+            <Text style={S.brandTagline}>IDEAS WORTH SHARING</Text>
+          </View>
+        </View>
+        <Pressable onPress={() => goTab("Profile")} style={S.profileButton}>
+          <Text style={S.profileButtonText}>P</Text>
+        </Pressable>
+      </View>
+
+      <View style={S.hero}>
+        <View style={S.heroDecorOne} />
+        <View style={S.heroDecorTwo} />
+        <View style={S.heroPill}>
+          <View style={S.heroPillDot} />
+          <Text style={S.heroPillText}>COMMUNITY POWERED</Text>
+        </View>
+
+        <Text style={S.heroTitle}>
+          Big ideas.{"\n"}
+          <Text style={{ color: C.yellow }}>Bigger impact.</Text>
+        </Text>
+
+        <Text style={S.heroCopy}>
+          Bring people together to help meaningful messages reach audiences beyond their existing networks.
+        </Text>
+
+        <View style={S.heroActions}>
+          <View style={{ flex: 1 }}>
+            <Button title="Explore campaigns ↗" onPress={() => goTab("Explore")} kind="coral" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Button title="+ Create campaign" onPress={() => openCreate()} kind="secondary" />
+          </View>
+        </View>
+
+        <View style={S.heroBottom}>
+          <View style={S.heroStat}>
+            <Text style={S.heroStatNumber}>01</Text>
+            <Text style={S.heroStatLabel}>Create</Text>
+          </View>
+          <View style={S.heroStatLine} />
+          <View style={S.heroStat}>
+            <Text style={S.heroStatNumber}>02</Text>
+            <Text style={S.heroStatLabel}>Review</Text>
+          </View>
+          <View style={S.heroStatLine} />
+          <View style={S.heroStat}>
+            <Text style={S.heroStatNumber}>03</Text>
+            <Text style={S.heroStatLabel}>Amplify</Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={S.estimateBanner}>
+        <View style={S.estimateIcon}>
+          <Text style={{ fontSize: 23 }}>✳</Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={S.estimateTitle}>Reach, reimagined</Text>
+          <Text style={S.estimateCopy}>
+            Illustrative model: approximately 18 impressions per ₹1.
+          </Text>
+        </View>
+        <View style={S.estimateNumberWrap}>
+          <Text style={S.estimateNumber}>~18</Text>
+        </View>
+      </View>
+
+      <View style={S.sectionHeader}>
+        <View>
+          <Text style={S.sectionKicker}>DISCOVER SOMETHING GOOD</Text>
+          <Text style={S.sectionTitle}>Campaigns for you</Text>
+        </View>
+        <Pressable onPress={() => goTab("Explore")} style={S.viewAll}>
+          <Text style={S.viewAllText}>View all ↗</Text>
+        </Pressable>
+      </View>
+
+      {visibleCampaigns.slice(0, 3).map((c) => (
+        <CampaignCard
+          key={c.id}
+          campaign={c}
+          onPress={() => openCampaign(c)}
+          onBack={() => {
+            setSelected(c);
+            backCampaign();
+          }}
+        />
+      ))}
+
+      <View style={S.howCard}>
+        <View style={S.howCardHeader}>
+          <View style={{ flex: 1 }}>
+            <Text style={S.sectionKicker}>THE AMPLIFY WAY</Text>
+            <Text style={S.howTitle}>From idea to audience.</Text>
+          </View>
+          <View style={S.howIcon}>
+            <Text style={{ color: C.purple, fontSize: 23 }}>✦</Text>
+          </View>
+        </View>
+
+        {[
+          { n: "01", title: "Tell your story", copy: "Create a message and add credible sources.", color: C.purple, tint: C.lavender },
+          { n: "02", title: "Get reviewed", copy: "Campaigns are checked before funding eligibility.", color: C.teal, tint: C.tealPale },
+          { n: "03", title: "Reach more people", copy: "Community funding can support message distribution.", color: C.coral, tint: C.coralPale },
+        ].map((item) => (
+          <View key={item.n} style={S.howRow}>
+            <View style={[S.howNumberBox, { backgroundColor: item.tint }]}>
+              <Text style={[S.howNumber, { color: item.color }]}>{item.n}</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={S.howStepTitle}>{item.title}</Text>
+              <Text style={S.howStepCopy}>{item.copy}</Text>
+            </View>
+          </View>
+        ))}
+
+        <Text style={S.disclaimer}>
+          Contributions fund message distribution, not the cause itself. Reach is estimated and not guaranteed.
+        </Text>
+      </View>
+
+      {!!error && <Text style={S.errorText}>{error}</Text>}
+    </ScrollView>
+  );
+
+  // ============================================================
+  // EXPLORE
+  // ============================================================
+
+  const exploreScreen = () => (
+    <ScrollView
+      contentContainerStyle={S.page}
+      keyboardShouldPersistTaps="handled"
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={C.purple} />}
+    >
+      <Header title="Explore" subtitle="Find a message worth amplifying." />
+
+      <View style={S.searchWrap}>
+        <Text style={S.searchIcon}>⌕</Text>
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Search campaigns or topics"
+          placeholderTextColor="#A2A0B4"
+          style={S.searchInput}
+          returnKeyType="search"
+        />
+        {!!query && (
+          <Pressable onPress={() => setQuery("")}>
+            <Text style={S.clearSearch}>✕</Text>
+          </Pressable>
+        )}
+      </View>
+
+      <Text style={S.label}>EXPLORE BY CATEGORY</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        {CATEGORIES.map((item) => (
+          <Chip
+            key={item}
+            label={item}
+            selected={category === item}
+            onPress={() => setCategory(item)}
+          />
+        ))}
+      </ScrollView>
+
+      <View style={S.sectionHeader}>
+        <View>
+          <Text style={S.sectionKicker}>FIND YOUR NEXT CAMPAIGN</Text>
+          <Text style={S.sectionTitle}>{visibleCampaigns.length} campaigns</Text>
+        </View>
+      </View>
+
+      <View style={S.sortRow}>
+        {[
+          ["recent", "Recent"],
+          ["progress", "Most funded"],
+          ["ending", "Ending soon"],
+        ].map(([value, label]) => (
+          <Chip
+            key={value}
+            label={label}
+            selected={sort === value}
+            onPress={() => setSort(value)}
+          />
+        ))}
+      </View>
+
+      {visibleCampaigns.map((c) => (
+        <CampaignCard
+          key={c.id}
+          campaign={c}
+          onPress={() => openCampaign(c)}
+          onBack={() => {
+            setSelected(c);
+            backCampaign();
+          }}
+        />
+      ))}
+
+      {visibleCampaigns.length === 0 && (
+        <View style={S.empty}>
+          <View style={S.emptyIcon}>
+            <Text style={{ fontSize: 30, color: C.purple }}>⌕</Text>
+          </View>
+          <Text style={S.sectionTitle}>Nothing found just yet</Text>
+          <Text style={S.emptyCopy}>Try another keyword or category.</Text>
+          <Button
+            title="Clear filters"
+            kind="secondary"
+            onPress={() => {
+              setQuery("");
+              setCategory("All");
+            }}
+          />
+        </View>
+      )}
+    </ScrollView>
+  );
+
+  // ============================================================
+  // CAMPAIGN DETAILS
+  // ============================================================
+
+  const detailScreen = () => (
+    <ScrollView contentContainerStyle={S.page}>
+      <Header
+        title="Campaign details"
+        subtitle="Read the story behind the message."
+        back={() => setScreen("tabs")}
+      />
+
+      <View style={S.detailImageWrap}>
+        <Image
+          source={{ uri: selected.coverImage }}
+          style={S.detailImage}
+          resizeMode="cover"
+        />
+        <View style={S.detailImageShade} />
+        <View style={S.detailImageBadge}>
+          <Text style={S.detailImageBadgeText}>{selected.category}</Text>
+        </View>
+      </View>
+
+      <Text style={S.sectionKicker}>A COMMUNITY CAMPAIGN</Text>
+      <Text style={S.detailTitle}>{selected.title}</Text>
+      <Text style={S.byline}>Created by {selected.creatorName}</Text>
+      <Text style={S.storyIntro}>{selected.storyIntro || selected.summary}</Text>
+
+      {(selected.storySections || []).map((section, index) => (
+        <View key={index} style={S.storySection}>
+          <Text style={S.subheading}>{section.heading}</Text>
+          <Text style={S.bodyText}>{section.body}</Text>
+        </View>
+      ))}
+
+      <View style={S.panel}>
+        <Text style={S.panelTitle}>Sources & references</Text>
+        {(selected.sources || []).map((source, index) => (
+          <Pressable
+            key={index}
+            onPress={() => Linking.openURL(source.url)}
+            style={S.sourceRow}
+          >
+            <View style={S.sourceIcon}>
+              <Text style={{ color: C.purple, fontSize: 17 }}>↗</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={S.sourceTitle}>{source.title}</Text>
+              <Text style={S.sourceUrl}>{source.url}</Text>
+            </View>
+          </Pressable>
+        ))}
+        {(!selected.sources || selected.sources.length === 0) && (
+          <Text style={S.bodyText}>No sources have been added yet.</Text>
+        )}
+      </View>
+
+      <View style={S.fundingPanel}>
+        <View style={S.fundingPanelHeader}>
+          <Text style={S.panelTitle}>Funding progress</Text>
+          <View style={S.liveBadge}>
+            <Text style={S.liveBadgeText}>{Math.round(progressOf(selected))}%</Text>
+          </View>
+        </View>
+
+        <Text style={S.fundingBig}>{money(selected.raised)}</Text>
+        <Text style={S.muted}>raised of {money(selected.fundingGoal)}</Text>
+        <Progress value={progressOf(selected)} />
+        <View style={S.rowBetween}>
+          <Text style={S.small}>Goal: {money(selected.fundingGoal)}</Text>
+          <Text style={S.small}>{number(selected.estimatedReach)} estimated reach</Text>
+        </View>
+
+        <View style={S.metricDivider} />
+        <View style={S.rowBetween}>
+          <View style={{ flex: 1 }}>
+            <Text style={S.metricLabel}>CAMPAIGN STATUS</Text>
+            <Text style={S.metricText}>{selected.status.replace(/_/g, " ")}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={S.metricLabel}>DURATION</Text>
+            <Text style={S.metricText}>{selected.durationDays} days</Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={S.panel}>
+        <Text style={S.panelTitle}>Intended audience</Text>
+        <Text style={S.bodyText}>Location: {selected.audienceLocation || "Not specified"}</Text>
+        <Text style={S.bodyText}>
+          Interests: {(selected.audienceInterests || []).join(", ") || "Broad audience"}
+        </Text>
+        <Text style={S.bodyText}>
+          Channels: {(selected.channels || []).join(", ") || "To be determined"}
+        </Text>
+      </View>
+
+      <View style={S.notice}>
+        <Text style={S.noticeTitle}>Where does your contribution go?</Text>
+        <Text style={S.noticeCopy}>
+          Contributions support distribution of the campaign message, not a direct donation to the cause or creator. This demo does not collect real money or launch advertising.
+        </Text>
+      </View>
+
+      <Button title="Support this campaign →" onPress={backCampaign} />
+      <Button title="View distribution report" kind="secondary" onPress={() => openReport(selected)} />
+      <Button
+        title="Share campaign"
+        kind="outline"
+        onPress={() =>
+          Alert.alert("Share campaign", `Demo campaign ID: ${selected.id}`)
+        }
+      />
+    </ScrollView>
+  );
+
+  // ============================================================
+  // CREATE CAMPAIGN — five-step form
+  // ============================================================
+
+  const createScreen = () => (
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <ScrollView
+        contentContainerStyle={S.page}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Header
+          title="Create a campaign"
+          subtitle="Your idea deserves a clear story."
+          back={() => setScreen("tabs")}
+        />
+
+        <View style={S.stepper}>
+          {STEPS.map((name, index) => (
+            <Pressable
+              key={name}
+              style={S.stepItem}
+              onPress={() => {
+                if (index < step) setStep(index);
+              }}
+            >
+              <View
+                style={[
+                  S.stepCircle,
+                  index === step && S.stepCircleActive,
+                  index < step && S.stepCircleDone,
+                ]}
+              >
+                <Text
+                  style={[
+                    S.stepCircleText,
+                    (index === step || index < step) && { color: C.white },
+                  ]}
+                >
+                  {index < step ? "✓" : index + 1}
+                </Text>
+              </View>
+              <Text style={[S.stepLabel, index === step && { color: C.purple }]}>
+                {name}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <View style={S.formPanel}>
+          <View style={S.formTop}>
+            <View style={S.formStepBadge}>
+              <Text style={S.formStepBadgeText}>STEP {step + 1} OF 5</Text>
+            </View>
+            <Text style={S.formTitle}>{STEPS[step]}</Text>
+          </View>
+
+          {step === 0 && (
+            <>
+              <Text style={S.bodyText}>
+                Start with the basics. Make the message clear and specific.
+              </Text>
+
+              <Field
+                label="Campaign title *"
+                value={draft.title}
+                onChangeText={(v) => patchDraft("title", v)}
+                placeholder="What do you want people to know?"
+                maxLength={60}
+              />
+              <Text style={S.small}>{(draft.title || "").length}/60 characters</Text>
+
+              <Label>Choose a category *</Label>
+              <View style={S.chipWrap}>
+                {CATEGORIES.filter((x) => x !== "All").map((item) => (
+                  <Chip
+                    key={item}
+                    label={item}
+                    selected={draft.category === item}
+                    onPress={() => patchDraft("category", item)}
+                  />
+                ))}
+              </View>
+
+              <Field
+                label="Creator / organization *"
+                value={draft.creatorName}
+                onChangeText={(v) => patchDraft("creatorName", v)}
+                placeholder="Who is behind this message?"
+              />
+              <Field
+                label="Short summary"
+                value={draft.summary}
+                onChangeText={(v) => patchDraft("summary", v)}
+                placeholder="Explain the idea in a few sentences."
+                multiline
+              />
+              <Field
+                label="Cover image URL"
+                value={draft.coverImage}
+                onChangeText={(v) => patchDraft("coverImage", v)}
+                placeholder="https://example.com/image.jpg"
+                keyboardType="url"
+              />
+            </>
+          )}
+
+          {step === 1 && (
+            <>
+              <Text style={S.bodyText}>
+                Tell the story behind your message. Add at least one credible source.
+              </Text>
+
+              <Field
+                label="Story introduction *"
+                value={draft.storyIntro}
+                onChangeText={(v) => patchDraft("storyIntro", v)}
+                placeholder="Why does this matter?"
+                multiline
+              />
+
+              <Field
+                label="Section heading"
+                value={draft.storySections?.[0]?.heading}
+                onChangeText={(v) =>
+                  patchDraft("storySections", [
+                    {
+                      ...(draft.storySections?.[0] || {}),
+                      heading: v,
+                      body: draft.storySections?.[0]?.body || "",
+                    },
+                  ])
+                }
+                placeholder="What people should know"
+              />
+
+              <Field
+                label="Story section"
+                value={draft.storySections?.[0]?.body}
+                onChangeText={(v) =>
+                  patchDraft("storySections", [
+                    {
+                      ...(draft.storySections?.[0] || {}),
+                      heading: draft.storySections?.[0]?.heading || "What people should know",
+                      body: v,
+                    },
+                  ])
+                }
+                placeholder="Add useful context and details."
+                multiline
+              />
+
+              {(draft.sources || []).map((source, index) => (
+                <View key={index} style={S.sourceForm}>
+                  <View style={S.rowBetween}>
+                    <Text style={S.sourceFormTitle}>Source {index + 1}</Text>
+                    {index > 0 && (
+                      <Pressable
+                        onPress={() =>
+                          patchDraft(
+                            "sources",
+                            (draft.sources || []).filter((_, i) => i !== index)
+                          )
+                        }
+                      >
+                        <Text style={{ color: C.danger, fontWeight: "800" }}>Remove</Text>
+                      </Pressable>
+                    )}
+                  </View>
+
+                  <Field
+                    label="Source title *"
+                    value={source.title}
+                    onChangeText={(v) =>
+                      patchDraft(
+                        "sources",
+                        (draft.sources || []).map((x, i) =>
+                          i === index ? { ...x, title: v } : x
+                        )
+                      )
+                    }
+                    placeholder="Publisher or report name"
+                  />
+                  <Field
+                    label="Source URL *"
+                    value={source.url}
+                    onChangeText={(v) =>
+                      patchDraft(
+                        "sources",
+                        (draft.sources || []).map((x, i) =>
+                          i === index ? { ...x, url: v } : x
+                        )
+                      )
+                    }
+                    placeholder="https://example.org/source"
+                    keyboardType="url"
+                  />
+                </View>
+              ))}
+
+              <Button
+                title="+ Add another source"
+                kind="secondary"
+                onPress={() =>
+                  patchDraft("sources", [
+                    ...(draft.sources || []),
+                    { title: "", url: "" },
+                  ])
+                }
+              />
+            </>
+          )}
+
+          {step === 2 && (
+            <>
+              <Text style={S.bodyText}>
+                Prepare the message people will see in a promotion placement.
+              </Text>
+
+              <Field
+                label="Ad headline *"
+                value={draft.adHeadline}
+                onChangeText={(v) => patchDraft("adHeadline", v)}
+                placeholder="Short, memorable headline"
+                maxLength={60}
+              />
+              <Field
+                label="Ad description"
+                value={draft.adDescription}
+                onChangeText={(v) => patchDraft("adDescription", v)}
+                placeholder="A sentence that invites people to learn more."
+                multiline
+                maxLength={180}
+              />
+              <Field
+                label="Call to action"
+                value={draft.cta}
+                onChangeText={(v) => patchDraft("cta", v)}
+                placeholder="Learn more"
+              />
+              <Field
+                label="Advertising image URL"
+                value={draft.coverImage}
+                onChangeText={(v) => patchDraft("coverImage", v)}
+                placeholder="https://example.com/image.jpg"
+                keyboardType="url"
+              />
+
+              <View style={S.adPreview}>
+                <View style={S.adPreviewTop}>
+                  <View style={S.adPreviewIcon}>
+                    <Text style={{ color: C.purple, fontWeight: "900" }}>A</Text>
+                  </View>
+                  <View>
+                    <Text style={S.adPreviewBrand}>AMPLIFY</Text>
+                    <Text style={S.small}>Sponsored message · Preview</Text>
+                  </View>
+                </View>
+
+                {!!draft.coverImage && (
+                  <Image
+                    source={{ uri: draft.coverImage }}
+                    style={S.adPreviewImage}
+                    resizeMode="cover"
+                  />
+                )}
+
+                <Text style={S.adPreviewHeadline}>
+                  {draft.adHeadline || draft.title || "Your campaign headline"}
+                </Text>
+                <Text style={S.bodyText}>
+                  {draft.adDescription || draft.summary || "Your ad description appears here."}
+                </Text>
+                <View style={S.adPreviewCta}>
+                  <Text style={S.adPreviewCtaText}>{draft.cta || "Learn more"} ↗</Text>
+                </View>
+              </View>
+              <Text style={S.disclaimer}>
+                Creative preview only. No ad platform is connected.
+              </Text>
+            </>
+          )}
+
+          {step === 3 && (
+            <>
+              <Text style={S.bodyText}>
+                Define who you want to reach. Actual targeting and delivery may vary.
+              </Text>
+
+              <Field
+                label="Target location *"
+                value={draft.audienceLocation}
+                onChangeText={(v) => patchDraft("audienceLocation", v)}
+                placeholder="e.g. Hyderabad, Telangana"
+              />
+
+              <Label>Audience interests</Label>
+              <View style={S.chipWrap}>
+                {[
+                  "Environment",
+                  "Education",
+                  "Health",
+                  "Science",
+                  "Community",
+                  "Arts",
+                  "Business",
+                  "Public policy",
+                  "Families",
+                  "Students",
+                ].map((item) => {
+                  const active = (draft.audienceInterests || []).includes(item);
+                  return (
+                    <Chip
+                      key={item}
+                      label={item}
+                      selected={active}
+                      color={C.teal}
+                      onPress={() =>
+                        patchDraft(
+                          "audienceInterests",
+                          active
+                            ? (draft.audienceInterests || []).filter((x) => x !== item)
+                            : [...(draft.audienceInterests || []), item]
+                        )
+                      }
+                    />
+                  );
+                })}
+              </View>
+
+              <Label>Distribution channels</Label>
+              <View style={S.chipWrap}>
+                {["Social feeds", "Display", "Video"].map((item) => {
+                  const active = (draft.channels || []).includes(item);
+                  return (
+                    <Chip
+                      key={item}
+                      label={item}
+                      selected={active}
+                      color={C.purple}
+                      onPress={() =>
+                        patchDraft(
+                          "channels",
+                          active
+                            ? (draft.channels || []).filter((x) => x !== item)
+                            : [...(draft.channels || []), item]
+                        )
+                      }
+                    />
+                  );
+                })}
+              </View>
+
+              <Field
+                label="Campaign duration (days)"
+                value={draft.durationDays ?? 14}
+                onChangeText={(v) =>
+                  patchDraft("durationDays", Math.max(1, Math.min(90, Number(v) || 1)))
+                }
+                keyboardType="numeric"
+              />
+              <Field
+                label="Proposed advertising budget (₹)"
+                value={draft.adBudget ?? 9000}
+                onChangeText={(v) =>
+                  patchDraft("adBudget", Math.max(0, Number(v) || 0))
+                }
+                keyboardType="numeric"
+              />
+
+              <View style={S.reachCard}>
+                <View style={S.reachCardIcon}>
+                  <Text style={{ color: C.teal, fontSize: 22 }}>↗</Text>
+                </View>
+                <Text style={S.reachCardKicker}>ILLUSTRATIVE REACH ESTIMATE</Text>
+                <Text style={S.reachCardNumber}>
+                  ~{estimateReach(Number(draft.adBudget || 0))}
+                </Text>
+                <Text style={S.bodyText}>
+                  Estimated impressions using the demo assumption of 18 per ₹1.
+                </Text>
+              </View>
+
+              <Field
+                label="Funding goal (₹)"
+                value={draft.fundingGoal ?? 10000}
+                onChangeText={(v) =>
+                  patchDraft("fundingGoal", Math.max(1, Number(v) || 1))
+                }
+                keyboardType="numeric"
+              />
+            </>
+          )}
+
+          {step === 4 && (
+            <>
+              <Text style={S.bodyText}>
+                Review the details before submitting your campaign for moderation.
+              </Text>
+
+              <View style={S.reviewCard}>
+                {!!draft.coverImage && (
+                  <Image
+                    source={{ uri: draft.coverImage }}
+                    style={S.reviewImage}
+                    resizeMode="cover"
+                  />
+                )}
+
+                <View style={S.reviewCategory}>
+                  <Text style={S.reviewCategoryText}>{draft.category || "CATEGORY"}</Text>
+                </View>
+                <Text style={S.reviewTitle}>{draft.title || "Untitled campaign"}</Text>
+                <Text style={S.byline}>By {draft.creatorName || "Creator"}</Text>
+                <Text style={S.bodyText}>{draft.summary || "No summary added."}</Text>
+
+                <View style={S.metricDivider} />
+                <Text style={S.subheading}>Story</Text>
+                <Text style={S.bodyText}>{draft.storyIntro || "No story added."}</Text>
+
+                <Text style={S.subheading}>Advertising creative</Text>
+                <Text style={S.bodyText}>{draft.adHeadline || "No headline added."}</Text>
+
+                <Text style={S.subheading}>Audience</Text>
+                <Text style={S.bodyText}>
+                  {draft.audienceLocation || "Not set"} · {(draft.channels || []).join(", ")}
+                </Text>
+
+                <View style={S.reviewStats}>
+                  <View>
+                    <Text style={S.small}>Funding goal</Text>
+                    <Text style={S.reviewAmount}>{money(Number(draft.fundingGoal || 10000))}</Text>
+                  </View>
+                  <View>
+                    <Text style={S.small}>Proposed budget</Text>
+                    <Text style={S.reviewAmount}>{money(Number(draft.adBudget || 0))}</Text>
+                  </View>
+                </View>
+              </View>
+
+              <Pressable
+                onPress={() => setRulesAccepted(!rulesAccepted)}
+                style={S.checkRow}
+              >
+                <View style={[S.checkbox, rulesAccepted && S.checkboxActive]}>
+                  {rulesAccepted && <Text style={{ color: C.white, fontWeight: "900" }}>✓</Text>}
+                </View>
+                <Text style={[S.bodyText, { flex: 1 }]}>
+                  I confirm the campaign follows platform rules and includes accurate sources. I understand it may be reviewed before becoming eligible for funding.
+                </Text>
+              </Pressable>
+
+              <View style={S.notice}>
+                <Text style={S.noticeTitle}>One last thing</Text>
+                <Text style={S.noticeCopy}>
+                  Submission is not approval. Funding does not automatically launch advertising.
+                </Text>
+              </View>
+            </>
+          )}
+
+          <View style={S.saveRow}>
+            <Button title="Save draft" kind="outline" onPress={() => saveDraft(true)} />
+            <Text style={S.small}>
+              {saving ? "Saving…" : autoSaved ? "✓ Saved" : "Auto-save enabled"}
+            </Text>
+          </View>
+
+          <View style={S.formActions}>
+            {step > 0 && (
+              <View style={{ flex: 1 }}>
+                <Button
+                  title="← Back"
+                  kind="outline"
+                  onPress={() => setStep((n) => Math.max(0, n - 1))}
+                />
+              </View>
+            )}
+            <View style={{ flex: 1 }}>
+              {step < 4 ? (
+                <Button
+                  title="Continue →"
+                  onPress={() => setStep((n) => Math.min(4, n + 1))}
+                />
+              ) : (
+                <Button title="Submit for review ↗" onPress={submitDraft} />
+              )}
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+
+  // ============================================================
+  // CONTRIBUTION CHECKOUT — simulated only
+  // ============================================================
+
+  const contributeScreen = () => {
+    const amount = Number(contribution) || 0;
+    const platformFee = Math.round(amount * 0.05);
+    const transactionFee = Math.round(amount * 0.02);
+    const total = amount + platformFee + transactionFee;
+
+    return (
+      <ScrollView contentContainerStyle={S.page} keyboardShouldPersistTaps="handled">
+        <Header
+          title="Back this campaign"
+          subtitle="Help a message reach more people."
+          back={() => setScreen("detail")}
+        />
+
+        <View style={S.checkoutHero}>
+          <View style={S.checkoutIcon}>
+            <Text style={{ color: C.white, fontSize: 24 }}>✦</Text>
+          </View>
+          <Text style={S.checkoutTitle}>{selected.title}</Text>
+          <Text style={S.checkoutCopy}>{selected.summary}</Text>
+          <View style={S.checkoutProgress}>
+            <Progress value={progressOf(selected)} color={C.yellow} />
+            <View style={S.rowBetween}>
+              <Text style={S.checkoutSmall}>{money(selected.raised)} raised</Text>
+              <Text style={S.checkoutSmall}>{Math.round(progressOf(selected))}% funded</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={S.sectionHeader}>
+          <Text style={S.sectionTitle}>Choose an amount</Text>
+        </View>
+
+        <View style={S.amountGrid}>
+          {[100, 250, 500, 1000].map((n) => {
+            const active = contribution === String(n);
+            return (
+              <Pressable
+                key={n}
+                onPress={() => setContribution(String(n))}
+                style={[S.amountOption, active && S.amountOptionActive]}
+              >
+                <Text style={[S.amountText, active && { color: C.purple }]}>
+                  {money(n)}
+                </Text>
+                {active && <Text style={S.amountSelectedLabel}>SELECTED</Text>}
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <Field
+          label="Custom amount (₹)"
+          value={contribution}
+          onChangeText={setContribution}
+          placeholder="Enter amount"
+          keyboardType="numeric"
+        />
+
+        <View style={S.reachCard}>
+          <Text style={S.reachCardKicker}>ESTIMATED IMPRESSIONS</Text>
+          <Text style={S.reachCardNumber}>~{estimateReach(amount)}</Text>
+          <Text style={S.bodyText}>
+            An illustrative estimate only. Actual delivery is not guaranteed.
+          </Text>
+        </View>
+
+        <View style={S.panel}>
+          <Text style={S.panelTitle}>Contribution summary</Text>
+
+          {[
+            ["Contribution", money(amount)],
+            ["Platform fee (5%)", money(platformFee)],
+            ["Transaction fee (2%)", money(transactionFee)],
+          ].map(([label, value]) => (
+            <View key={label} style={S.feeRow}>
+              <Text style={S.muted}>{label}</Text>
+              <Text style={S.feeValue}>{value}</Text>
+            </View>
+          ))}
+
+          <View style={S.metricDivider} />
+          <View style={S.feeRow}>
+            <Text style={S.totalLabel}>Total · simulated</Text>
+            <Text style={S.totalAmount}>{money(total)}</Text>
+          </View>
+        </View>
+
+        <View style={S.notice}>
+          <Text style={S.noticeTitle}>Demo checkout</Text>
+          <Text style={S.noticeCopy}>
+            This action simulates a contribution through the API. No real payment is collected.
+          </Text>
+        </View>
+
+        <Button
+          title={`Simulate contribution · ${money(total)}`}
+          onPress={doContribution}
+        />
+        <Button title="Cancel" kind="ghost" onPress={() => setScreen("detail")} />
+      </ScrollView>
+    );
+  };
+
+  // ============================================================
+  // RECEIPT
+  // ============================================================
+
+  const receiptScreen = () => (
+    <ScrollView contentContainerStyle={S.page}>
+      <View style={S.receiptHero}>
+        <View style={S.receiptSuccess}>
+          <Text style={S.receiptSuccessText}>✓</Text>
+        </View>
+        <Text style={S.receiptTitle}>Contribution recorded!</Text>
+        <Text style={S.receiptCopy}>
+          This is a simulated transaction. No real money was collected.
+        </Text>
+      </View>
+
+      <View style={S.receiptCard}>
+        <Text style={S.sectionKicker}>AMPLIFY · DEMO RECEIPT</Text>
+        <Text style={S.receiptAmount}>{money(receipt?.total || 0)}</Text>
+        <Text style={S.muted}>Simulated total</Text>
+        <View style={S.metricDivider} />
+
+        {[
+          ["Receipt ID", receipt?.id || "DEMO"],
+          ["Contribution", money(receipt?.amount || 0)],
+          ["Fees", money((receipt?.platformFee || 0) + (receipt?.transactionFee || 0))],
+          ["Campaign", receipt?.campaignTitle || selected.title],
+          ["Estimated impressions", number(receipt?.estimatedReach || 0)],
+        ].map(([label, value]) => (
+          <View key={label} style={S.feeRow}>
+            <Text style={S.muted}>{label}</Text>
+            <Text style={[S.feeValue, { maxWidth: "58%", textAlign: "right" }]}>{value}</Text>
+          </View>
+        ))}
+      </View>
+
+      {receiptCampaign && (
+        <View style={S.panel}>
+          <Text style={S.panelTitle}>Campaign progress updated</Text>
+          <Text style={S.fundingBig}>{money(receiptCampaign.raised)}</Text>
+          <Text style={S.muted}>of {money(receiptCampaign.fundingGoal)}</Text>
+          <Progress value={progressOf(receiptCampaign)} />
+        </View>
+      )}
+
+      <Button
+        title="View campaign"
+        onPress={() => {
+          if (receiptCampaign) setSelected(receiptCampaign);
+          setScreen("detail");
+        }}
+      />
+      <Button title="Done" kind="secondary" onPress={() => goTab("Activity")} />
+    </ScrollView>
+  );
+
+  // ============================================================
+  // ACTIVITY
+  // ============================================================
+
+  const activityScreen = () => (
+    <ScrollView
+      contentContainerStyle={S.page}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={C.purple} />}
+    >
+      <Header title="Activity" subtitle="Your latest campaign updates." />
+
+      <View style={S.activityBanner}>
+        <View style={S.activityBannerIcon}>
+          <Text style={{ fontSize: 24, color: C.purple }}>◷</Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={S.activityBannerTitle}>Stay in the loop</Text>
+          <Text style={S.bodyText}>
+            Review campaign submissions and activity updates here.
+          </Text>
+        </View>
+      </View>
+
+      {activity.length === 0 ? (
+        <View style={S.empty}>
+          <View style={S.emptyIcon}>
+            <Text style={{ fontSize: 26, color: C.purple }}>✦</Text>
+          </View>
+          <Text style={S.sectionTitle}>You're all caught up</Text>
+          <Text style={S.emptyCopy}>
+            Submissions, contribution records and milestones will appear here when available.
+          </Text>
+        </View>
+      ) : (
+        activity.map((item, index) => (
+          <View key={item.id} style={S.activityCard}>
+            <View
+              style={[
+                S.activityMarker,
+                { backgroundColor: [C.purple, C.teal, C.coral, C.blue][index % 4] },
+              ]}
+            />
+            <View style={{ flex: 1 }}>
+              <Text style={S.activityTitle}>{item.title}</Text>
+              <Text style={S.bodyText}>{item.body}</Text>
+              <Text style={S.small}>{new Date(item.createdAt).toLocaleString()}</Text>
+              {!!item.campaignId && (
+                <Pressable
+                  onPress={() => {
+                    const c = campaigns.find((x) => x.id === item.campaignId);
+                    if (c) openCampaign(c);
+                  }}
+                >
+                  <Text style={S.viewAllText}>View campaign →</Text>
+                </Pressable>
+              )}
+            </View>
+          </View>
+        ))
+      )}
+
+      <Text style={S.disclaimer}>
+        These are in-app demo updates. Push notifications and email delivery are not configured.
+      </Text>
+    </ScrollView>
+  );
+
+  // ============================================================
+  // PROFILE
+  // ============================================================
+
+  const profileScreen = () => {
+    const owned = campaigns.filter(
+      (c) =>
+        ["draft", "submitted_for_review", "changes_requested"].includes(c.status) ||
+        c.creatorName === "Praveen Kumar"
+    );
+
+    return (
+      <ScrollView
+        contentContainerStyle={S.page}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={C.purple} />}
+      >
+        <Header title="Your profile" subtitle="Your campaigns, your impact." />
+
+        <View style={S.profileHero}>
+          <View style={S.profileAvatar}>
+            <Text style={S.profileAvatarText}>PK</Text>
+            <View style={S.avatarOnline} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={S.profileName}>{profile?.user?.name || "Praveen Kumar"}</Text>
+            <Text style={S.muted}>
+              {profile?.user?.email || "praveen.demo@example.com"}
+            </Text>
+            <View style={S.demoBadge}>
+              <Text style={S.demoBadgeText}>DEMO ACCOUNT</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={S.statsGrid}>
+          <StatCard
+            label="Campaigns created"
+            value={String(profile?.counts?.created ?? owned.length)}
+          />
+          <StatCard
+            label="Contributions"
+            value={String(profile?.counts?.backed ?? 0)}
+            tint={C.tealPale}
+            accent={C.teal}
+          />
+        </View>
+
+        <View style={S.sectionHeader}>
+          <Text style={S.sectionTitle}>Your campaign work</Text>
+          <Text style={S.small}>{owned.length} items</Text>
+        </View>
+
+        {owned.length === 0 ? (
+          <View style={S.panel}>
+            <Text style={S.panelTitle}>Your first idea starts here</Text>
+            <Text style={S.bodyText}>Create a campaign and your work will appear here.</Text>
+            <Button title="+ Create campaign" onPress={() => openCreate()} />
+          </View>
+        ) : (
+          owned.map((c) => (
+            <Pressable
+              key={c.id}
+              style={S.ownedRow}
+              onPress={() =>
+                c.status === "draft" || c.status === "changes_requested"
+                  ? openCreate(c)
+                  : openReport(c)
+              }
+            >
+              <View style={S.ownedIcon}>
+                <Text style={{ color: C.purple, fontWeight: "900" }}>A</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={S.ownedTitle}>{c.title}</Text>
+                <Text style={S.small}>{c.status.replace(/_/g, " ")}</Text>
+              </View>
+              <Text style={S.viewAllText}>Open ↗</Text>
+            </Pressable>
+          ))
+        )}
+
+        <Text style={S.sectionTitle}>Help & information</Text>
+        {[
+          "How it works",
+          "FAQs",
+          "Community guidelines",
+          "Privacy",
+          "Terms",
+          "Contact support",
+        ].map((title, index) => (
+          <Pressable
+            key={title}
+            style={S.infoRow}
+            onPress={() => {
+              setInfoTitle(title);
+              setScreen("info");
+            }}
+          >
+            <View
+              style={[
+                S.infoIcon,
+                {
+                  backgroundColor: [C.lavender, C.tealPale, C.coralPale, C.bluePale, C.yellowPale, C.pinkPale][index],
+                },
+              ]}
+            >
+              <Text style={S.infoIconText}>{["✦", "?", "✓", "◈", "≡", "↗"][index]}</Text>
+            </View>
+            <Text style={[S.bodyText, { flex: 1, color: C.ink, fontWeight: "700" }]}>{title}</Text>
+            <Text style={S.rowArrow}>›</Text>
+          </Pressable>
+        ))}
+
+        <Button title="Refresh account data" kind="outline" onPress={refresh} />
+      </ScrollView>
+    );
+  };
+
+  // ============================================================
+  // DISTRIBUTION REPORT
+  // ============================================================
+
+  const reportScreen = () => {
+    const metrics = [
+      {
+        label: "Funds raised",
+        value: money(report?.fundsRaised ?? selected.raised),
+        tint: C.lavender,
+        accent: C.purple,
+      },
+      {
+        label: "Funding goal",
+        value: money(report?.fundingGoal ?? selected.fundingGoal),
+        tint: C.tealPale,
+        accent: C.teal,
+      },
+      {
+        label: "Ad spend",
+        value: money(report?.adSpend ?? 0),
+        tint: C.coralPale,
+        accent: C.coral,
+      },
+      {
+        label: "Impressions",
+        value: number(report?.impressions ?? 0),
+        tint: C.bluePale,
+        accent: C.blue,
+      },
+      {
+        label: "Clicks",
+        value: number(report?.clicks ?? 0),
+        tint: C.pinkPale,
+        accent: C.pink,
+      },
+      {
+        label: "Estimated reach",
+        value: number(report?.estimatedReach ?? selected.estimatedReach),
+        tint: C.yellowPale,
+        accent: "#986A00",
+      },
+    ];
+
+    return (
+      <ScrollView contentContainerStyle={S.page}>
+        <Header
+          title="Campaign insights"
+          subtitle="Estimated and measured results."
+          back={() => setScreen("detail")}
+        />
+
+        <View style={S.reportHero}>
+          <Text style={S.reportKicker}>DISTRIBUTION REPORT</Text>
+          <Text style={S.reportTitle}>{report?.title || selected.title}</Text>
+          <Text style={S.reportStatus}>{selected.status.replace(/_/g, " ")}</Text>
+        </View>
+
+        <View style={S.reportGrid}>
+          {metrics.map((item) => (
+            <View key={item.label} style={[S.reportTile, { backgroundColor: item.tint }]}>
+              <Text style={[S.reportValue, { color: item.accent }]}>{item.value}</Text>
+              <Text style={S.reportLabel}>{item.label}</Text>
+            </View>
+          ))}
+        </View>
+
+        <View style={S.panel}>
+          <Text style={S.panelTitle}>Measured reach</Text>
+          <Text style={S.fundingBig}>
+            {report?.measuredReach == null
+              ? "Not available"
+              : number(report.measuredReach)}
+          </Text>
+          <Text style={S.bodyText}>
+            {report?.metricsNote ||
+              "No live advertising platform is connected. Estimated and measured results remain separate."}
+          </Text>
+        </View>
+
+        <View style={S.notice}>
+          <Text style={S.noticeTitle}>Know what these numbers mean</Text>
+          <Text style={S.noticeCopy}>
+            Estimated reach is not guaranteed. Funding completion does not mean advertising has launched.
+          </Text>
+        </View>
+      </ScrollView>
+    );
+  };
+
+  // ============================================================
+  // HELP / INFORMATION
+  // ============================================================
+
+  const infoScreen = () => (
+    <ScrollView contentContainerStyle={S.page}>
+      <Header title={infoTitle} subtitle="Amplify · Help centre" back={() => setScreen("tabs")} />
+
+      <View style={S.infoHero}>
+        <View style={S.infoHeroIcon}>
+          <Text style={{ color: C.white, fontSize: 26 }}>✦</Text>
+        </View>
+        <Text style={S.infoHeroTitle}>Good ideas deserve to travel.</Text>
+        <Text style={S.infoHeroCopy}>
+          Amplify helps communities fund distribution of campaign messages so they can reach audiences beyond existing networks.
+        </Text>
+      </View>
+
+      <View style={S.panel}>
+        <Text style={S.panelTitle}>{infoTitle}</Text>
+        <Text style={S.bodyText}>
+          Create a campaign, add its story and sources, choose an intended audience, and submit it for review.
+        </Text>
+        <Text style={S.bodyText}>
+          Contributions support message distribution rather than directly funding the cause or creator.
+        </Text>
+        <Text style={S.bodyText}>
+          Reach is estimated, not guaranteed. Review and advertising setup must be complete before promotion begins.
+        </Text>
+        <Text style={S.bodyText}>
+          This prototype uses simulated checkout and demo account information. No real payments or advertising delivery occur.
+        </Text>
+      </View>
+
+      <Button title="Back to home" onPress={() => goTab("Home")} />
+    </ScrollView>
+  );
+
+  // ============================================================
+  // CREATE LANDING TAB
+  // ============================================================
+
+  const createLanding = () => {
+    const drafts = campaigns.filter(
+      (c) => c.status === "draft" || c.status === "changes_requested"
+    );
+
+    return (
+      <ScrollView contentContainerStyle={S.page}>
+        <Header title="Create" subtitle="Turn your message into a campaign." />
+
+        <View style={S.createLandingHero}>
+          <View style={S.createLandingDecor} />
+          <View style={S.createLandingIcon}>
+            <Text style={{ fontSize: 28, color: C.purple }}>✳</Text>
+          </View>
+          <Text style={S.createLandingTitle}>Start with an idea.</Text>
+          <Text style={S.createLandingCopy}>
+            Tell your story, include reliable sources, design your message and choose an intended audience.
+          </Text>
+          <Button title="Create a campaign →" onPress={() => openCreate()} />
+        </View>
+
+        <View style={S.sectionHeader}>
+          <Text style={S.sectionTitle}>Your saved drafts</Text>
+          <Text style={S.small}>{drafts.length} drafts</Text>
+        </View>
+
+        {drafts.length === 0 ? (
+          <View style={S.panel}>
+            <Text style={S.panelTitle}>Nothing saved yet</Text>
+            <Text style={S.bodyText}>
+              Start a campaign and save your work to continue later.
+            </Text>
+          </View>
+        ) : (
+          drafts.map((campaign) => (
+            <Pressable
+              key={campaign.id}
+              style={S.ownedRow}
+              onPress={() => openCreate(campaign)}
+            >
+              <View style={S.ownedIcon}>
+                <Text style={{ color: C.purple, fontWeight: "900" }}>✎</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={S.ownedTitle}>{campaign.title}</Text>
+                <Text style={S.small}>{campaign.status.replace(/_/g, " ")}</Text>
+              </View>
+              <Text style={S.viewAllText}>Resume →</Text>
+            </Pressable>
+          ))
+        )}
+      </ScrollView>
+    );
+  };
+
+  const renderContent = () => {
+    if (screen === "detail") return detailScreen();
+    if (screen === "create") return createScreen();
+    if (screen === "contribute") return contributeScreen();
+    if (screen === "receipt") return receiptScreen();
+    if (screen === "report") return reportScreen();
+    if (screen === "info") return infoScreen();
+
+    if (tab === "Home") return homeScreen();
+    if (tab === "Explore") return exploreScreen();
+    if (tab === "Create") return createLanding();
+    if (tab === "Activity") return activityScreen();
+    return profileScreen();
+  };
+
+  const tabs = [
+    { name: "Home", icon: "⌂" },
+    { name: "Explore", icon: "⌕" },
+    { name: "Create", icon: "+" },
+    { name: "Activity", icon: "◷" },
+    { name: "Profile", icon: "○" },
+  ];
+
+  return (
+    <SafeAreaView style={S.safe} edges={["top", "left", "right"]}>
+      <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
+
+      <View style={{ flex: 1 }}>
+        {loading && (
+          <View style={S.loadingOverlay}>
+            <View style={S.loadingCard}>
+              <ActivityIndicator size="large" color={C.purple} />
+              <Text style={S.loadingText}>Working on it…</Text>
+            </View>
+          </View>
+        )}
+
+        {renderContent()}
+      </View>
+
+      {screen === "tabs" && (
+        <View style={S.bottomNav}>
+          {tabs.map((item) => {
+            const active = tab === item.name;
+            return (
+              <Pressable
+                key={item.name}
+                onPress={() => goTab(item.name)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                style={S.navItem}
+              >
+                <View style={[S.navIconWrap, active && S.navIconWrapActive]}>
+                  <Text style={[S.navIcon, active && S.navIconActive]}>
+                    {item.icon}
+                  </Text>
+                </View>
+                <Text style={[S.navLabel, active && S.navLabelActive]}>
+                  {item.name}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
+    </SafeAreaView>
+  );
 }
 
-// SafeAreaProvider supplies safe-area measurements to SafeAreaView, including on web.
 export default function App() {
- return (
-  <SafeAreaProvider>
-   <MainApp />
-  </SafeAreaProvider>
- );
+  return (
+    <SafeAreaProvider>
+      <MainApp />
+    </SafeAreaProvider>
+  );
 }
 
-// Styles for all visual elements. Most names match the UI component they style.
-// For example, hero* styles control the home banner; nav* styles control bottom tabs.
-const styles=StyleSheet.create({
- safe:{flex:1,backgroundColor:colors.bg},page:{width:"100%",maxWidth:820,alignSelf:"center",paddingHorizontal:20,paddingTop:12,paddingBottom:34,gap:17},
- screenHeader:{flexDirection:"row",alignItems:"center",gap:12,marginBottom:5},backButton:{width:42,height:42,borderRadius:14,backgroundColor:colors.white,alignItems:"center",justifyContent:"center",borderWidth:1,borderColor:colors.line},backText:{fontSize:30,color:colors.ink,marginTop:-4},screenTitle:{fontSize:28,fontWeight:"800",color:colors.ink,letterSpacing:-.8},screenSubtitle:{fontSize:13,color:colors.muted,marginTop:4,lineHeight:19},
- brandBar:{flexDirection:"row",alignItems:"center",justifyContent:"space-between",paddingHorizontal:2,paddingTop:2,paddingBottom:3},brandLockup:{flexDirection:"row",alignItems:"center",gap:10},brandMark:{width:42,height:42,borderRadius:15,backgroundColor:"#176B4B",alignItems:"center",justifyContent:"center",shadowColor:"#176B4B",shadowOffset:{width:0,height:4},shadowOpacity:0.16,shadowRadius:8,elevation:3},brandMarkText:{fontSize:24,fontWeight:"900",color:"#FFFFFF",letterSpacing:-1},brandName:{fontSize:22,fontWeight:"900",color:colors.ink,letterSpacing:-.8},brandTagline:{fontSize:10,color:colors.muted,marginTop:1,letterSpacing:.2},brandProfile:{width:42,height:42,borderRadius:15,backgroundColor:"#E5EEE6",alignItems:"center",justifyContent:"center",borderWidth:1,borderColor:"#D5E3D7"},brandProfileText:{fontSize:15,fontWeight:"900",color:colors.green},
- hero:{backgroundColor:"#173D2D",borderRadius:28,padding:23,gap:15,overflow:"hidden",shadowColor:"#123A29",shadowOffset:{width:0,height:8},shadowOpacity:0.13,shadowRadius:16,elevation:4},heroPill:{flexDirection:"row",alignItems:"center",alignSelf:"flex-start",gap:7,borderRadius:30,backgroundColor:"#315643",paddingHorizontal:10,paddingVertical:7},liveDot:{width:6,height:6,borderRadius:3,backgroundColor:"#A7D8A7"},heroPillText:{color:"#D7E8D9",fontSize:9,fontWeight:"800",letterSpacing:1.1},heroTitle:{fontSize:39,lineHeight:43,fontWeight:"900",letterSpacing:-1.5,color:"white"},heroCopy:{fontSize:14,lineHeight:21,color:"#D6E3D8"},heroActions:{flexDirection:"row",gap:8},heroEstimate:{borderTopWidth:1,borderTopColor:"#466653",paddingTop:14,flexDirection:"row",alignItems:"center",gap:13},heroEstimateNumber:{fontSize:34,fontWeight:"800",color:"#D3E8C9"},heroEstimateTitle:{fontSize:12,fontWeight:"700",color:"white"},heroEstimateSub:{fontSize:10,color:"#C0D0C2",marginTop:3},
- sectionHeading:{flexDirection:"row",alignItems:"center",justifyContent:"space-between",marginTop:8},h2:{fontSize:19,fontWeight:"800",color:colors.ink,letterSpacing:-.45},link:{fontSize:12,fontWeight:"800",color:colors.green},linkSmall:{fontSize:11,color:colors.green,marginTop:4},
- campaignCard:{backgroundColor:colors.white,borderRadius:23,overflow:"hidden",borderWidth:1,borderColor:"#E5EBE5",marginBottom:5,shadowColor:"#1D3325",shadowOffset:{width:0,height:4},shadowOpacity:0.055,shadowRadius:12,elevation:2},campaignImage:{width:"100%",height:190,backgroundColor:"#DDE6DC"},cardBody:{padding:17,gap:9},rowBetween:{flexDirection:"row",alignItems:"center",justifyContent:"space-between",gap:8},eyebrow:{fontSize:10,fontWeight:"800",letterSpacing:1.1,color:colors.green},status:{fontSize:9,fontWeight:"700",textTransform:"capitalize",color:colors.muted,backgroundColor:"#F0F2EC",paddingHorizontal:8,paddingVertical:5,borderRadius:20,overflow:"hidden"},cardTitle:{fontSize:18,fontWeight:"800",color:colors.ink,lineHeight:24,letterSpacing:-.25},mutedText:{fontSize:12,color:colors.muted,lineHeight:18},summary:{fontSize:13,lineHeight:19,color:"#515B54"},amount:{fontSize:14,fontWeight:"800",color:colors.ink},tiny:{fontSize:10,color:colors.muted,lineHeight:15},progressTrack:{height:6,backgroundColor:"#E8ECE6",borderRadius:9,overflow:"hidden",marginTop:4},progressFill:{height:"100%",backgroundColor:colors.green,borderRadius:9},metricValue:{fontSize:20,fontWeight:"800",color:colors.ink,letterSpacing:-.4},miniButton:{backgroundColor:colors.pale,borderRadius:12,paddingHorizontal:11,paddingVertical:10},miniButtonText:{fontSize:11,fontWeight:"800",color:colors.green},
- button:{minHeight:48,borderRadius:15,paddingHorizontal:16,paddingVertical:13,alignItems:"center",justifyContent:"center"},buttonPrimary:{backgroundColor:colors.green,shadowColor:"#176B4B",shadowOffset:{width:0,height:3},shadowOpacity:0.16,shadowRadius:6,elevation:2},buttonSecondary:{backgroundColor:colors.pale,borderWidth:1,borderColor:"#CFE3D4"},buttonGhost:{backgroundColor:"transparent"},buttonText:{fontSize:13,fontWeight:"800",letterSpacing:.1},howCard:{backgroundColor:"#EAF2E8",borderWidth:1,borderColor:"#DCE8DA",borderRadius:24,padding:19,gap:14},howRow:{flexDirection:"row",gap:11},howStep:{flex:1,gap:5},howNum:{fontSize:11,fontWeight:"800",color:colors.green},howTitle:{fontSize:14,fontWeight:"800",color:colors.ink},disclaimer:{fontSize:11,lineHeight:17,color:colors.muted,marginTop:5},
- searchInput:{backgroundColor:colors.white,borderWidth:1,borderColor:colors.line,borderRadius:16,paddingHorizontal:16,paddingVertical:14,fontSize:14,color:colors.ink,shadowColor:"#1D3325",shadowOffset:{width:0,height:2},shadowOpacity:0.025,shadowRadius:5,elevation:1},chip:{borderWidth:1,borderColor:colors.line,borderRadius:24,paddingHorizontal:13,paddingVertical:9,backgroundColor:colors.white,marginRight:6,marginBottom:4},chipSelected:{backgroundColor:colors.green,borderColor:colors.green},chipText:{fontSize:11,fontWeight:"700",color:colors.muted},chipTextSelected:{color:"white"},chipWrap:{flexDirection:"row",flexWrap:"wrap",marginTop:5},empty:{alignItems:"center",justifyContent:"center",paddingVertical:45,gap:12},emptyIcon:{fontSize:40,color:colors.green},
- detailImage:{width:"100%",height:245,borderRadius:24,backgroundColor:"#DDE6DC"},detailTitle:{fontSize:29,lineHeight:34,fontWeight:"800",letterSpacing:-.7,color:colors.ink},storyIntro:{fontSize:17,lineHeight:26,color:"#46534A",fontWeight:"500",marginTop:4},storySection:{gap:7,marginTop:6},bodyText:{fontSize:13,lineHeight:21,color:"#4D5951"},card:{backgroundColor:colors.white,borderWidth:1,borderColor:"#E5EBE5",borderRadius:22,padding:18,gap:12,shadowColor:"#1D3325",shadowOffset:{width:0,height:3},shadowOpacity:0.035,shadowRadius:8,elevation:1},sourceRow:{flexDirection:"row",gap:10,borderTopWidth:1,borderColor:"#F0F2EE",paddingTop:11},sourceIcon:{color:colors.green,fontSize:18},sourceTitle:{fontSize:13,fontWeight:"800",color:colors.ink},actionStack:{gap:8},fieldWrap:{gap:7,marginTop:9},label:{fontSize:12,fontWeight:"800",color:colors.ink},input:{borderWidth:1,borderColor:"#DCE5DD",borderRadius:14,backgroundColor:"#FBFCFA",paddingHorizontal:14,paddingVertical:13,fontSize:14,color:colors.ink,minHeight:49},multiline:{minHeight:105,paddingTop:12},stepper:{flexDirection:"row",justifyContent:"space-between",gap:2,marginVertical:4},stepperItem:{flex:1,alignItems:"center",gap:6},stepCircle:{width:27,height:27,borderRadius:14,borderWidth:1,borderColor:"#D5DDD3",alignItems:"center",justifyContent:"center",backgroundColor:colors.white},stepCircleActive:{backgroundColor:colors.green,borderColor:colors.green},stepCircleDone:{backgroundColor:"#6D9477",borderColor:"#6D9477"},stepCircleText:{fontSize:11,fontWeight:"800",color:colors.muted},stepLabel:{fontSize:9,color:colors.muted,textAlign:"center",lineHeight:12},stepCard:{backgroundColor:colors.white,borderWidth:1,borderColor:"#E5EBE5",borderRadius:24,padding:18,gap:14,shadowColor:"#1D3325",shadowOffset:{width:0,height:3},shadowOpacity:0.035,shadowRadius:8,elevation:1},nestedCard:{backgroundColor:"#F8F9F5",padding:12,borderRadius:14},adPreview:{borderRadius:16,borderWidth:1,borderColor:colors.line,padding:14,backgroundColor:"#F7F8F4",gap:8},adPreviewTitle:{fontSize:18,fontWeight:"800",color:colors.ink},reachBox:{borderRadius:16,backgroundColor:"#EDF4EA",padding:16,gap:5},previewCard:{borderWidth:1,borderColor:colors.line,borderRadius:16,padding:13,gap:10},previewImage:{width:"100%",height:130,borderRadius:12},checkRow:{flexDirection:"row",alignItems:"flex-start",gap:10},checkbox:{width:22,height:22,borderRadius:6,borderWidth:1,borderColor:"#AAB7AA",alignItems:"center",justifyContent:"center"},checkboxChecked:{backgroundColor:colors.green,borderColor:colors.green},
- amountGrid:{flexDirection:"row",flexWrap:"wrap",gap:8},amountOption:{flexGrow:1,borderWidth:1,borderColor:colors.line,backgroundColor:colors.white,borderRadius:13,paddingVertical:15,paddingHorizontal:12,alignItems:"center",minWidth:"22%"},amountOptionSelected:{borderColor:colors.green,backgroundColor:colors.pale},amountOptionText:{fontSize:13,fontWeight:"800",color:colors.ink},feeRow:{flexDirection:"row",justifyContent:"space-between",alignItems:"center",gap:8,paddingVertical:6},successIcon:{width:74,height:74,borderRadius:40,backgroundColor:colors.pale,alignSelf:"center",alignItems:"center",justifyContent:"center",marginTop:30},receiptCard:{backgroundColor:colors.white,borderWidth:1,borderColor:colors.line,borderRadius:22,padding:18,gap:13,marginVertical:20},receiptAmount:{fontSize:38,fontWeight:"800",color:colors.green,letterSpacing:-1},activityItem:{flexDirection:"row",gap:12,paddingVertical:15,borderBottomWidth:1,borderColor:colors.line},activityDot:{width:10,height:10,borderRadius:5,backgroundColor:"#70A47D",marginTop:5},activityTitle:{fontSize:14,fontWeight:"800",color:colors.ink,marginBottom:4},profileHero:{backgroundColor:colors.white,borderRadius:20,borderWidth:1,borderColor:colors.line,padding:16,flexDirection:"row",gap:13,alignItems:"center"},avatar:{width:52,height:52,borderRadius:18,backgroundColor:colors.pale,alignItems:"center",justifyContent:"center"},avatarText:{fontSize:16,fontWeight:"800",color:colors.green},statsRow:{flexDirection:"row",gap:10},statCard:{flex:1,padding:15,borderRadius:17,backgroundColor:colors.white,borderWidth:1,borderColor:colors.line,gap:5},listRow:{flexDirection:"row",alignItems:"center",justifyContent:"space-between",paddingVertical:13,borderBottomWidth:1,borderColor:colors.line},createHero:{backgroundColor:"#EAF1E7",padding:20,borderRadius:22,gap:13},createHeroIcon:{fontSize:29,color:colors.green},reportGrid:{flexDirection:"row",flexWrap:"wrap",gap:9},reportTile:{width:"48%",backgroundColor:colors.white,borderWidth:1,borderColor:colors.line,borderRadius:17,padding:14,gap:8},reportValue:{fontSize:20,fontWeight:"800",color:colors.ink},errorText:{color:colors.red,fontSize:12},center:{flex:1,alignItems:"center",justifyContent:"center"},bottomNav:{width:"100%",maxWidth:820,alignSelf:"center",flexDirection:"row",paddingTop:10,paddingBottom:10,borderTopWidth:1,borderColor:"#E0E8E1",backgroundColor:"#FFFFFF",shadowColor:"#1D3325",shadowOffset:{width:0,height:-3},shadowOpacity:0.035,shadowRadius:8,elevation:5},navItem:{flex:1,minHeight:42,alignItems:"center",justifyContent:"center",gap:4},navIcon:{fontSize:21,color:"#879188"},navActive:{color:colors.green,fontWeight:"900"},navLabel:{fontSize:9,color:"#879188",fontWeight:"600"},navLabelActive:{color:colors.green,fontWeight:"800"},navIndicator:{width:4,height:4,borderRadius:2,backgroundColor:colors.green,marginTop:1}
+// ============================================================
+// VISUAL SYSTEM
+// Mobile-first spacing, readable type, colourful accents,
+// rounded surfaces and large touch targets.
+// ============================================================
+
+const S = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: C.bg },
+  page: {
+    width: "100%",
+    maxWidth: 760,
+    alignSelf: "center",
+    paddingHorizontal: 18,
+    paddingTop: 12,
+    paddingBottom: 32,
+    gap: 17,
+  },
+
+  rowBetween: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+
+  brandBar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 2,
+  },
+  brandLockup: { flexDirection: "row", alignItems: "center", gap: 10 },
+  brandIcon: {
+    width: 45,
+    height: 45,
+    borderRadius: 16,
+    backgroundColor: C.purple,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: C.purple,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.24,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  brandIconText: {
+    fontSize: 26,
+    color: C.white,
+    fontWeight: "900",
+    fontStyle: "italic",
+  },
+  brandIconDot: {
+    width: 7,
+    height: 7,
+    backgroundColor: C.yellow,
+    borderRadius: 4,
+    position: "absolute",
+    right: 6,
+    top: 6,
+  },
+  brandName: {
+    fontSize: 24,
+    fontWeight: "900",
+    color: C.ink,
+    letterSpacing: -1.2,
+  },
+  brandTagline: {
+    fontSize: 9,
+    color: C.muted,
+    fontWeight: "800",
+    letterSpacing: 1.1,
+    marginTop: 1,
+  },
+  profileButton: {
+    width: 43,
+    height: 43,
+    borderRadius: 16,
+    backgroundColor: C.lavender,
+    borderWidth: 1,
+    borderColor: "#DCD2FF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  profileButtonText: { fontSize: 16, fontWeight: "900", color: C.purple },
+
+  hero: {
+    backgroundColor: C.navy,
+    borderRadius: 30,
+    padding: 22,
+    gap: 15,
+    overflow: "hidden",
+    shadowColor: C.navy,
+    shadowOffset: { width: 0, height: 9 },
+    shadowOpacity: 0.19,
+    shadowRadius: 15,
+    elevation: 5,
+  },
+  heroDecorOne: {
+    position: "absolute",
+    width: 190,
+    height: 190,
+    borderRadius: 100,
+    backgroundColor: C.purple,
+    opacity: 0.24,
+    right: -75,
+    top: -60,
+  },
+  heroDecorTwo: {
+    position: "absolute",
+    width: 110,
+    height: 110,
+    borderRadius: 60,
+    backgroundColor: C.teal,
+    opacity: 0.14,
+    right: 35,
+    top: 100,
+  },
+  heroPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 8,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
+    backgroundColor: C.navySoft,
+    borderRadius: 30,
+    borderWidth: 1,
+    borderColor: "#4A456C",
+  },
+  heroPillDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: C.teal,
+  },
+  heroPillText: {
+    color: "#DAD6FF",
+    fontSize: 9,
+    fontWeight: "900",
+    letterSpacing: 1.2,
+  },
+  heroTitle: {
+    color: C.white,
+    fontSize: 38,
+    lineHeight: 43,
+    fontWeight: "900",
+    letterSpacing: -1.6,
+  },
+  heroCopy: { color: "#D4D1E7", fontSize: 13, lineHeight: 21, maxWidth: 360 },
+  heroActions: { flexDirection: "row", gap: 9, flexWrap: "wrap" },
+  heroBottom: {
+    borderTopWidth: 1,
+    borderColor: "#494461",
+    paddingTop: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  heroStat: { gap: 4 },
+  heroStatNumber: { color: C.yellow, fontSize: 20, fontWeight: "900" },
+  heroStatLabel: { color: "#D2CFE2", fontSize: 10, fontWeight: "700" },
+  heroStatLine: { width: 1, height: 28, backgroundColor: "#494461" },
+
+  button: {
+    minHeight: 49,
+    borderRadius: 15,
+    paddingHorizontal: 15,
+    paddingVertical: 13,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  btnPrimary: {
+    backgroundColor: C.purple,
+    shadowColor: C.purple,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 7,
+    elevation: 3,
+  },
+  btnSecondary: {
+    backgroundColor: C.lavender,
+    borderWidth: 1,
+    borderColor: "#DAD0FF",
+  },
+  btnOutline: { backgroundColor: C.white, borderWidth: 1, borderColor: C.line },
+  btnGhost: { backgroundColor: "transparent" },
+  btnCoral: { backgroundColor: C.yellow },
+  buttonText: { fontSize: 12, fontWeight: "900", letterSpacing: 0.05 },
+
+  estimateBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 11,
+    backgroundColor: C.white,
+    borderWidth: 1,
+    borderColor: C.line,
+    borderRadius: 21,
+    padding: 14,
+  },
+  estimateIcon: {
+    width: 43,
+    height: 43,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: C.tealPale,
+  },
+  estimateTitle: { color: C.ink, fontSize: 13, fontWeight: "900" },
+  estimateCopy: { color: C.muted, fontSize: 10, lineHeight: 15, marginTop: 3 },
+  estimateNumberWrap: {
+    backgroundColor: C.yellowPale,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    borderRadius: 13,
+  },
+  estimateNumber: { color: "#8A6200", fontSize: 20, fontWeight: "900" },
+
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    gap: 8,
+    marginTop: 3,
+  },
+  sectionKicker: {
+    color: C.purple,
+    fontSize: 9,
+    fontWeight: "900",
+    letterSpacing: 1.25,
+    marginBottom: 5,
+  },
+  sectionTitle: {
+    color: C.ink,
+    fontSize: 21,
+    fontWeight: "900",
+    letterSpacing: -0.7,
+  },
+  viewAll: {
+    paddingHorizontal: 11,
+    paddingVertical: 9,
+    borderRadius: 12,
+    backgroundColor: C.lavender,
+  },
+  viewAllText: { color: C.purpleDark, fontSize: 11, fontWeight: "900" },
+
+  campaignCard: {
+    backgroundColor: C.white,
+    borderRadius: 24,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: C.line,
+    shadowColor: C.navy,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.055,
+    shadowRadius: 12,
+    elevation: 2,
+    marginBottom: 3,
+  },
+  campaignImageWrap: { height: 185, backgroundColor: C.lavender },
+  campaignImage: { width: "100%", height: "100%" },
+  imageShade: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "#15132D",
+    opacity: 0.12,
+  },
+  categoryBadge: {
+    position: "absolute",
+    top: 13,
+    left: 13,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: 11,
+  },
+  categoryBadgeText: { color: C.white, fontSize: 10, fontWeight: "900" },
+  imageBottomTag: {
+    position: "absolute",
+    bottom: 12,
+    left: 13,
+    backgroundColor: "rgba(25,22,56,0.8)",
+    borderRadius: 9,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+  },
+  imageBottomTagText: {
+    color: C.white,
+    fontSize: 8,
+    fontWeight: "900",
+    letterSpacing: 1,
+  },
+  campaignBody: { padding: 16, gap: 10 },
+  campaignTitle: {
+    color: C.ink,
+    fontSize: 18,
+    fontWeight: "900",
+    lineHeight: 24,
+    letterSpacing: -0.45,
+  },
+  byline: { color: C.muted, fontSize: 11, lineHeight: 17 },
+  campaignSummary: { color: "#55556D", fontSize: 12, lineHeight: 19 },
+  moneyLarge: { color: C.ink, fontSize: 20, fontWeight: "900" },
+  moneySmall: { color: C.purple, fontSize: 17, fontWeight: "900" },
+  small: { color: C.muted, fontSize: 10, lineHeight: 15 },
+  progressTrack: {
+    width: "100%",
+    height: 7,
+    borderRadius: 9,
+    backgroundColor: "#EBEAF2",
+    overflow: "hidden",
+    marginTop: 2,
+  },
+  progressFill: { height: "100%", borderRadius: 9 },
+  reachMini: { flexDirection: "row", alignItems: "center", gap: 6 },
+  reachDot: { width: 7, height: 7, borderRadius: 4 },
+  miniAction: {
+    backgroundColor: C.lavender,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  miniActionText: { color: C.purpleDark, fontSize: 11, fontWeight: "900" },
+
+  howCard: {
+    backgroundColor: C.white,
+    borderWidth: 1,
+    borderColor: C.line,
+    borderRadius: 25,
+    padding: 19,
+    gap: 16,
+  },
+  howCardHeader: { flexDirection: "row", alignItems: "center" },
+  howTitle: { color: C.ink, fontSize: 22, fontWeight: "900", letterSpacing: -0.8 },
+  howIcon: {
+    width: 43,
+    height: 43,
+    backgroundColor: C.lavender,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  howRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  howNumberBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  howNumber: { fontSize: 13, fontWeight: "900" },
+  howStepTitle: { color: C.ink, fontSize: 13, fontWeight: "900", marginBottom: 3 },
+  howStepCopy: { color: C.muted, fontSize: 11, lineHeight: 17 },
+  disclaimer: { color: C.muted, fontSize: 10, lineHeight: 16, marginTop: 4 },
+  errorText: { color: C.danger, fontSize: 12, lineHeight: 18 },
+
+  header: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 3 },
+  back: {
+    width: 43,
+    height: 43,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: C.white,
+    borderWidth: 1,
+    borderColor: C.line,
+  },
+  backText: { fontSize: 30, lineHeight: 32, color: C.ink, marginTop: -2 },
+  headerTitle: { color: C.ink, fontSize: 26, fontWeight: "900", letterSpacing: -0.9 },
+  headerSubtitle: { color: C.muted, fontSize: 12, lineHeight: 18, marginTop: 3 },
+
+  searchWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: C.white,
+    borderWidth: 1,
+    borderColor: C.line,
+    borderRadius: 17,
+    paddingHorizontal: 14,
+    minHeight: 52,
+  },
+  searchIcon: { fontSize: 24, color: C.purple },
+  searchInput: { flex: 1, color: C.ink, fontSize: 13, paddingVertical: 12 },
+  clearSearch: { color: C.muted, fontSize: 15, padding: 5 },
+  label: { color: C.ink, fontSize: 11, fontWeight: "900", marginBottom: 3 },
+  chip: {
+    borderWidth: 1,
+    borderColor: C.line,
+    borderRadius: 24,
+    paddingHorizontal: 13,
+    paddingVertical: 10,
+    backgroundColor: C.white,
+    marginRight: 6,
+    marginBottom: 5,
+  },
+  chipText: { fontSize: 10, color: C.muted, fontWeight: "800" },
+  chipWrap: { flexDirection: "row", flexWrap: "wrap", marginTop: 3 },
+  sortRow: { flexDirection: "row", flexWrap: "wrap" },
+  empty: { alignItems: "center", paddingVertical: 35, gap: 12 },
+  emptyIcon: {
+    width: 65,
+    height: 65,
+    backgroundColor: C.lavender,
+    borderRadius: 23,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyCopy: { color: C.muted, fontSize: 12, lineHeight: 19, textAlign: "center" },
+
+  detailImageWrap: { height: 225, borderRadius: 25, overflow: "hidden", backgroundColor: C.lavender },
+  detailImage: { width: "100%", height: "100%" },
+  detailImageShade: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "#15132D",
+    opacity: 0.12,
+  },
+  detailImageBadge: {
+    position: "absolute",
+    bottom: 13,
+    left: 13,
+    backgroundColor: C.white,
+    borderRadius: 11,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  detailImageBadgeText: { color: C.purpleDark, fontSize: 11, fontWeight: "900" },
+  detailTitle: { color: C.ink, fontSize: 30, fontWeight: "900", lineHeight: 36, letterSpacing: -1 },
+  storyIntro: { color: "#41415D", fontSize: 15, fontWeight: "600", lineHeight: 24 },
+  storySection: { gap: 8, paddingVertical: 5 },
+  subheading: { color: C.ink, fontSize: 15, fontWeight: "900" },
+  bodyText: { color: "#5F6078", fontSize: 12, lineHeight: 20 },
+
+  panel: {
+    backgroundColor: C.white,
+    borderRadius: 22,
+    padding: 17,
+    borderWidth: 1,
+    borderColor: C.line,
+    gap: 12,
+  },
+  panelTitle: { color: C.ink, fontSize: 16, fontWeight: "900" },
+  sourceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderTopWidth: 1,
+    borderColor: C.line,
+    paddingTop: 12,
+  },
+  sourceIcon: {
+    width: 35,
+    height: 35,
+    backgroundColor: C.lavender,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sourceTitle: { color: C.ink, fontSize: 12, fontWeight: "800" },
+  sourceUrl: { color: C.purple, fontSize: 10, lineHeight: 15, marginTop: 3 },
+
+  fundingPanel: {
+    backgroundColor: C.navy,
+    borderRadius: 24,
+    padding: 19,
+    gap: 11,
+  },
+  fundingPanelHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  fundingBig: { color: C.ink, fontSize: 30, fontWeight: "900", letterSpacing: -1 },
+  muted: { color: C.muted, fontSize: 11, lineHeight: 17 },
+  liveBadge: { backgroundColor: "#DDF8F2", borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6 },
+  liveBadgeText: { color: "#117C6D", fontSize: 11, fontWeight: "900" },
+  metricDivider: { height: 1, backgroundColor: C.line, marginVertical: 4 },
+  metricLabel: { color: "#AAA4CB", fontSize: 9, fontWeight: "900", letterSpacing: 1 },
+  metricText: { color: C.ink, fontSize: 12, fontWeight: "800", marginTop: 5 },
+
+  notice: {
+    backgroundColor: C.yellowPale,
+    borderWidth: 1,
+    borderColor: "#F4E3AA",
+    borderRadius: 18,
+    padding: 15,
+    gap: 6,
+  },
+  noticeTitle: { color: "#795900", fontSize: 13, fontWeight: "900" },
+  noticeCopy: { color: "#78643A", fontSize: 11, lineHeight: 18 },
+
+  field: { gap: 7, marginTop: 7 },
+  input: {
+    borderWidth: 1,
+    borderColor: "#E4E1EF",
+    borderRadius: 15,
+    backgroundColor: "#FBFAFE",
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    color: C.ink,
+    fontSize: 13,
+    minHeight: 49,
+  },
+  inputMultiline: { minHeight: 105, paddingTop: 13 },
+  stepper: { flexDirection: "row", justifyContent: "space-between", gap: 4, marginVertical: 4 },
+  stepItem: { flex: 1, alignItems: "center", gap: 6 },
+  stepCircle: {
+    width: 29,
+    height: 29,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: "#DCD9E8",
+    backgroundColor: C.white,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stepCircleActive: { backgroundColor: C.purple, borderColor: C.purple },
+  stepCircleDone: { backgroundColor: C.teal, borderColor: C.teal },
+  stepCircleText: { color: C.muted, fontSize: 11, fontWeight: "900" },
+  stepLabel: { color: C.muted, fontSize: 9, textAlign: "center", lineHeight: 13 },
+  formPanel: {
+    backgroundColor: C.white,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: C.line,
+    padding: 16,
+    gap: 14,
+  },
+  formTop: { gap: 9, marginBottom: 2 },
+  formStepBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: C.lavender,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 10,
+  },
+  formStepBadgeText: { color: C.purpleDark, fontSize: 9, fontWeight: "900", letterSpacing: 1 },
+  formTitle: { color: C.ink, fontSize: 23, fontWeight: "900", letterSpacing: -0.6 },
+  sourceForm: {
+    padding: 12,
+    backgroundColor: C.bg,
+    borderRadius: 16,
+    gap: 8,
+  },
+  sourceFormTitle: { color: C.ink, fontSize: 12, fontWeight: "900" },
+  adPreview: {
+    backgroundColor: C.bg,
+    borderRadius: 19,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: C.line,
+    gap: 10,
+  },
+  adPreviewTop: { flexDirection: "row", alignItems: "center", gap: 9 },
+  adPreviewIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: C.lavender,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  adPreviewBrand: { color: C.ink, fontSize: 10, fontWeight: "900", letterSpacing: 1 },
+  adPreviewImage: { width: "100%", height: 140, borderRadius: 13 },
+  adPreviewHeadline: { color: C.ink, fontSize: 17, fontWeight: "900" },
+  adPreviewCta: {
+    alignSelf: "flex-start",
+    backgroundColor: C.purple,
+    borderRadius: 11,
+    paddingHorizontal: 13,
+    paddingVertical: 9,
+  },
+  adPreviewCtaText: { color: C.white, fontSize: 11, fontWeight: "900" },
+  reachCard: {
+    backgroundColor: C.tealPale,
+    borderRadius: 19,
+    padding: 16,
+    gap: 7,
+  },
+  reachCardIcon: {
+    width: 38,
+    height: 38,
+    backgroundColor: C.white,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  reachCardKicker: { color: "#168778", fontSize: 9, fontWeight: "900", letterSpacing: 1 },
+  reachCardNumber: { color: "#126F62", fontSize: 30, fontWeight: "900", letterSpacing: -1 },
+  reviewCard: {
+    backgroundColor: C.bg,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: C.line,
+    padding: 13,
+    gap: 11,
+  },
+  reviewImage: { width: "100%", height: 140, borderRadius: 13 },
+  reviewCategory: { alignSelf: "flex-start", backgroundColor: C.lavender, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 9 },
+  reviewCategoryText: { color: C.purpleDark, fontSize: 10, fontWeight: "900" },
+  reviewTitle: { color: C.ink, fontSize: 22, fontWeight: "900", lineHeight: 28 },
+  reviewStats: { flexDirection: "row", justifyContent: "space-between", gap: 10 },
+  reviewAmount: { color: C.ink, fontSize: 16, fontWeight: "900", marginTop: 4 },
+  checkRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  checkbox: { width: 23, height: 23, borderWidth: 1, borderColor: "#C5C1D6", borderRadius: 7, alignItems: "center", justifyContent: "center" },
+  checkboxActive: { backgroundColor: C.purple, borderColor: C.purple },
+  saveRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 9 },
+  formActions: { flexDirection: "row", gap: 9 },
+
+  checkoutHero: { backgroundColor: C.navy, borderRadius: 25, padding: 19, gap: 12 },
+  checkoutIcon: { width: 44, height: 44, borderRadius: 15, backgroundColor: C.purple, alignItems: "center", justifyContent: "center" },
+  checkoutTitle: { color: C.white, fontSize: 23, fontWeight: "900", lineHeight: 29 },
+  checkoutCopy: { color: "#D2CEE4", fontSize: 12, lineHeight: 19 },
+  checkoutProgress: { gap: 9, marginTop: 3 },
+  checkoutSmall: { color: "#D6D2E9", fontSize: 10 },
+  amountGrid: { flexDirection: "row", flexWrap: "wrap", gap: 9 },
+  amountOption: {
+    flexGrow: 1,
+    minWidth: "45%",
+    minHeight: 65,
+    borderRadius: 17,
+    borderWidth: 1,
+    borderColor: C.line,
+    backgroundColor: C.white,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 3,
+  },
+  amountOptionActive: { backgroundColor: C.lavender, borderColor: C.purple, borderWidth: 2 },
+  amountText: { color: C.ink, fontSize: 16, fontWeight: "900" },
+  amountSelectedLabel: { color: C.purple, fontSize: 8, fontWeight: "900", letterSpacing: 1 },
+  feeRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 10, paddingVertical: 6 },
+  feeValue: { color: C.ink, fontSize: 12, fontWeight: "800" },
+  totalLabel: { color: C.ink, fontSize: 13, fontWeight: "900" },
+  totalAmount: { color: C.purple, fontSize: 21, fontWeight: "900" },
+
+  receiptHero: { alignItems: "center", gap: 10, paddingVertical: 18 },
+  receiptSuccess: { width: 75, height: 75, borderRadius: 26, backgroundColor: C.tealPale, alignItems: "center", justifyContent: "center" },
+  receiptSuccessText: { color: "#0D8D78", fontSize: 35, fontWeight: "900" },
+  receiptTitle: { color: C.ink, fontSize: 25, fontWeight: "900", textAlign: "center" },
+  receiptCopy: { color: C.muted, fontSize: 12, lineHeight: 19, textAlign: "center" },
+  receiptCard: { backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderRadius: 24, padding: 19, gap: 13 },
+  receiptAmount: { color: C.purple, fontSize: 38, fontWeight: "900", letterSpacing: -1.2 },
+
+  activityBanner: { backgroundColor: C.lavender, borderRadius: 21, padding: 16, flexDirection: "row", gap: 12, alignItems: "center" },
+  activityBannerIcon: { width: 46, height: 46, borderRadius: 15, backgroundColor: C.white, alignItems: "center", justifyContent: "center" },
+  activityBannerTitle: { color: C.ink, fontSize: 14, fontWeight: "900", marginBottom: 4 },
+  activityCard: { flexDirection: "row", gap: 12, backgroundColor: C.white, borderRadius: 17, borderWidth: 1, borderColor: C.line, padding: 14 },
+  activityMarker: { width: 10, height: 10, borderRadius: 5, marginTop: 5 },
+  activityTitle: { color: C.ink, fontSize: 13, fontWeight: "900", marginBottom: 4 },
+
+  profileHero: { flexDirection: "row", alignItems: "center", gap: 13, padding: 17, borderRadius: 23, backgroundColor: C.white, borderWidth: 1, borderColor: C.line },
+  profileAvatar: { width: 59, height: 59, borderRadius: 21, backgroundColor: C.purple, alignItems: "center", justifyContent: "center" },
+  profileAvatarText: { color: C.white, fontSize: 18, fontWeight: "900" },
+  avatarOnline: { width: 11, height: 11, backgroundColor: C.teal, borderRadius: 6, borderWidth: 2, borderColor: C.white, position: "absolute", right: -1, bottom: 0 },
+  profileName: { color: C.ink, fontSize: 17, fontWeight: "900" },
+  demoBadge: { alignSelf: "flex-start", marginTop: 6, backgroundColor: C.yellowPale, borderRadius: 7, paddingHorizontal: 7, paddingVertical: 4 },
+  demoBadgeText: { color: "#886300", fontSize: 8, fontWeight: "900", letterSpacing: 0.8 },
+  statsGrid: { flexDirection: "row", gap: 10 },
+  statCard: { flex: 1, borderRadius: 19, padding: 15, gap: 6 },
+  statValue: { fontSize: 25, fontWeight: "900" },
+  statLabel: { color: C.muted, fontSize: 10, lineHeight: 15 },
+  ownedRow: { flexDirection: "row", alignItems: "center", gap: 11, backgroundColor: C.white, borderRadius: 17, padding: 13, borderWidth: 1, borderColor: C.line },
+  ownedIcon: { width: 39, height: 39, backgroundColor: C.lavender, borderRadius: 13, alignItems: "center", justifyContent: "center" },
+  ownedTitle: { color: C.ink, fontSize: 12, fontWeight: "900", lineHeight: 18 },
+  infoRow: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: C.white, padding: 12, borderRadius: 15, borderWidth: 1, borderColor: C.line },
+  infoIcon: { width: 38, height: 38, borderRadius: 13, alignItems: "center", justifyContent: "center" },
+  infoIconText: { color: C.ink, fontSize: 16, fontWeight: "900" },
+  rowArrow: { color: C.muted, fontSize: 23 },
+
+  reportHero: { backgroundColor: C.navy, borderRadius: 23, padding: 20, gap: 10 },
+  reportKicker: { color: C.yellow, fontSize: 9, fontWeight: "900", letterSpacing: 1.2 },
+  reportTitle: { color: C.white, fontSize: 23, fontWeight: "900", lineHeight: 29 },
+  reportStatus: { color: "#D6D2E9", fontSize: 10, fontWeight: "700" },
+  reportGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  reportTile: { width: "48%", flexGrow: 1, minHeight: 100, borderRadius: 18, padding: 13, justifyContent: "center", gap: 7 },
+  reportValue: { fontSize: 19, fontWeight: "900" },
+  reportLabel: { color: C.muted, fontSize: 10, fontWeight: "700" },
+
+  createLandingHero: { backgroundColor: C.lavender, borderRadius: 27, padding: 21, gap: 14, overflow: "hidden" },
+  createLandingDecor: { position: "absolute", width: 130, height: 130, borderRadius: 70, backgroundColor: "#DCD1FF", right: -35, top: -35 },
+  createLandingIcon: { width: 55, height: 55, backgroundColor: C.white, borderRadius: 19, alignItems: "center", justifyContent: "center" },
+  createLandingTitle: { color: C.ink, fontSize: 27, fontWeight: "900", letterSpacing: -0.9 },
+  createLandingCopy: { color: "#5C587B", fontSize: 13, lineHeight: 21 },
+
+  infoHero: { backgroundColor: C.navy, borderRadius: 25, padding: 22, gap: 13 },
+  infoHeroIcon: { width: 49, height: 49, borderRadius: 16, backgroundColor: C.purple, alignItems: "center", justifyContent: "center" },
+  infoHeroTitle: { color: C.white, fontSize: 25, fontWeight: "900", lineHeight: 31 },
+  infoHeroCopy: { color: "#D5D1E8", fontSize: 12, lineHeight: 20 },
+
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 10,
+    backgroundColor: "rgba(246,245,251,0.76)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingCard: { backgroundColor: C.white, padding: 22, borderRadius: 20, gap: 12, alignItems: "center" },
+  loadingText: { color: C.ink, fontSize: 12, fontWeight: "800" },
+
+  bottomNav: {
+    width: "100%",
+    maxWidth: 760,
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: C.white,
+    borderTopWidth: 1,
+    borderColor: C.line,
+    paddingTop: 8,
+    paddingBottom: Platform.OS === "android" ? 7 : 5,
+    paddingHorizontal: 4,
+    shadowColor: C.navy,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.045,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  navItem: { flex: 1, minHeight: 49, alignItems: "center", justifyContent: "center", gap: 3 },
+  navIconWrap: { minWidth: 40, minHeight: 27, borderRadius: 11, alignItems: "center", justifyContent: "center" },
+  navIconWrapActive: { backgroundColor: C.lavender },
+  navIcon: { fontSize: 21, lineHeight: 25, color: "#9795AC", fontWeight: "700" },
+  navIconActive: { color: C.purple, fontWeight: "900" },
+  navLabel: { color: "#89879D", fontSize: 9, fontWeight: "700" },
+  navLabelActive: { color: C.purpleDark, fontWeight: "900" },
 });
